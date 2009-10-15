@@ -30,15 +30,26 @@ public class IrcBotImpl extends PircBot {
 
         String payload = message.substring(prefix.length(), message.length()).trim().toLowerCase();
 
-        Matcher m = Pattern.compile("(?:make|give|grant) (.+) (a )?(committer|commit access).*").matcher(payload);
+        Matcher m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*").matcher(payload);
         if (m.matches()) {
             grantCommitAccess(channel, sender, m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:create|make) (.+)(?: component)? in (?:issue|bug)(?: tracker| database)? for (.+)").matcher(payload);
+        m = Pattern.compile("(?:create|make) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)").matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
+            return;
+        }
+
+        if (payload.equals("help")) {
+            help(channel);
+            return;
+        }
+
+        if (payload.equals("refresh")) {
+            // get the updated list
+            sendRawLine("NAMES #hudson");
             return;
         }
 
@@ -50,8 +61,9 @@ public class IrcBotImpl extends PircBot {
      *
      * IOW, does he have a voice of a channel operator?
      */
-    private boolean isSenderAuthorized(String sender, String channel) {
+    private boolean isSenderAuthorized(String channel, String sender) {
         for (User u : getUsers(channel)) {
+            System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
                 if (p.contains("@") || p.contains("+"))
@@ -59,6 +71,10 @@ public class IrcBotImpl extends PircBot {
             }
         }
         return false;
+    }
+
+    private void help(String channel) {
+        sendMessage(channel,"See http://wiki.hudson-ci.org/display/HUDSON/IRC+Bot");
     }
 
     /**
@@ -77,7 +93,7 @@ public class IrcBotImpl extends PircBot {
             jn.getProject("maven2-repository").getMembership().grantRole(jn.getUser(id),"javatools>maven2-repository.Maven Publisher");
             sendMessage(channel,id +" is now a committer");
         } catch (ProcessingException e) {
-            sendMessage(channel,"Failed to make "+id+" a committer: "+e.getMessage());
+            sendMessage(channel,"Failed to make "+id+" a committer: "+e.getMessage().replace('\n',' '));
             e.printStackTrace();
         }
     }
@@ -98,7 +114,7 @@ public class IrcBotImpl extends PircBot {
             comp.add(subcomponent,subcomponent+" plugin",owner,owner);
             sendMessage(channel,"New component created");
         } catch (ProcessingException e) {
-            sendMessage(channel,"Failed to create a new component: "+e.getMessage());
+            sendMessage(channel,"Failed to create a new component: "+e.getMessage().replace('\n',' '));
             e.printStackTrace();
         }
     }
