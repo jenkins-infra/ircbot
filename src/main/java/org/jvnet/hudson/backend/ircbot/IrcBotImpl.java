@@ -73,6 +73,22 @@ public class IrcBotImpl extends PircBot {
         return false;
     }
 
+    @Override
+    protected void onDisconnect() {
+        while (!isConnected()) {
+            try {
+                reconnect();
+            } catch (Exception e) {
+                e.printStackTrace();
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException _) {
+                    return; // abort
+                }
+            }
+        }
+    }
+
     private void help(String channel) {
         sendMessage(channel,"See http://wiki.hudson-ci.org/display/HUDSON/IRC+Bot");
     }
