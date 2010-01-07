@@ -1,13 +1,31 @@
 package org.jvnet.hudson.backend.ircbot;
 
+import com.meterware.httpunit.ClientProperties;
+import com.meterware.httpunit.HttpUnitOptions;
+import com.meterware.httpunit.PostMethodWebRequest;
+import com.meterware.httpunit.WebConversation;
+import com.meterware.httpunit.WebForm;
+import com.meterware.httpunit.WebResponse;
+import org.cyberneko.html.parsers.SAXParser;
+import org.dom4j.Document;
+import org.dom4j.DocumentException;
+import org.dom4j.Element;
+import org.dom4j.Node;
+import org.dom4j.io.DOMReader;
+import org.dom4j.io.SAXReader;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.IrcException;
 import org.jibble.pircbot.User;
+import org.kohsuke.jnt.ConnectionInfo;
 import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
 import org.kohsuke.jnt.JNIssueComponent;
+import org.xml.sax.SAXException;
 
 import java.io.IOException;
+import java.io.StringReader;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -124,21 +142,62 @@ public class IrcBotImpl extends PircBot {
         }
 
         sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
+
         try {
-            JavaNet jn = JavaNet.connect();
-            JNIssueComponent comp = jn.getProject("hudson").getIssueTracker().getComponent("hudson");
-            comp.add(subcomponent,subcomponent+" plugin",owner,owner);
+            createComponent(subcomponent, owner);
             sendMessage(channel,"New component created");
+        } catch (IOException e) {
+            sendMessage(channel,"Failed to create a new component"+e.getMessage());
+            e.printStackTrace();
+        } catch (SAXException e) {
+            sendMessage(channel,"Failed to create a new component"+e.getMessage());
+            e.printStackTrace();
         } catch (ProcessingException e) {
-            sendMessage(channel,"Failed to create a new component: "+e.getMessage().replace('\n',' '));
+            sendMessage(channel,"Failed to create a new component: "+e.getMessage());
+            e.printStackTrace();
+        } catch (DocumentException e) {
+            sendMessage(channel,"Failed to create a new component"+e.getMessage());
             e.printStackTrace();
         }
     }
 
-    public static void main(String[] args) throws IOException, IrcException {
+    /**
+     * JIRA doesn't have the SOAP API to create a component, so we need to do this via a HTTP POST and page scraping.
+     */
+    private void createComponent(String subcomponent, String owner) throws ProcessingException, IOException, SAXException, DocumentException {
+        ConnectionInfo con = new ConnectionInfo();
+        WebConversation wc = new WebConversation();
+        wc.setExceptionsThrownOnErrorStatus(true);
+        
+        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.hudson-ci.org/secure/project/AddComponent.jspa");
+        req.setParameter("pid","10172"); // TODO: use JIRA SOAP API to get this ID.
+        req.setParameter("os_username",con.userName);
+        req.setParameter("os_password",con.password);
+        req.setParameter("name",subcomponent);
+        req.setParameter("description",subcomponent+" plugin");
+        req.setParameter("componentLead",owner);
+        WebResponse rsp = wc.getResponse(req);
+
+        // did it result in an error?
+        Document tree = new SAXReader(new SAXParser()).read(new StringReader(rsp.getText()));
+        Element e = (Element) tree.selectSingleNode("//*[@class='errMsg']");
+        if (e!=null)
+            throw new ProcessingException(e.getTextTrim());
+    }
+
+    public static void main(String[] args) throws Exception {
+        new IrcBotImpl().createComponent("test-component","kohsuke");
+        System.exit(0);
+
         IrcBotImpl bot = new IrcBotImpl();
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
         bot.joinChannel("#hudson");
+    }
+
+    static {
+        // HttpUnit can't handle gzip-encoded content with Content-Length==-1,
+        // so disable gzip support
+        ClientProperties.getDefaultProperties().setAcceptGzip(false);
     }
 }

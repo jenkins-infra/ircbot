@@ -39,6 +39,11 @@
   </build>
   <dependencies>
     <dependency>
+      <groupId>org.jvnet.hudson</groupId>
+      <artifactId>jira-api</artifactId>
+      <version>1.0</version>
+    </dependency>
+    <dependency>
       <groupId>pircbot</groupId>
       <artifactId>pircbot</artifactId>
       <version>1.4.2</version>
@@ -46,7 +51,7 @@
     <dependency>
       <groupId>javanettasks</groupId>
       <artifactId>javanettasks</artifactId>
-      <version>1.0.25</version>
+      <version>1.0.27</version>
     </dependency>
   </dependencies>
 </project>
