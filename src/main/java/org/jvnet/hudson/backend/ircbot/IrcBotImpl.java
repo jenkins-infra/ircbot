@@ -1,33 +1,25 @@
 package org.jvnet.hudson.backend.ircbot;
 
 import com.meterware.httpunit.ClientProperties;
-import com.meterware.httpunit.HttpUnitOptions;
 import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
-import com.meterware.httpunit.WebForm;
 import com.meterware.httpunit.WebResponse;
 import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
-import org.dom4j.Node;
-import org.dom4j.io.DOMReader;
 import org.dom4j.io.SAXReader;
 import org.jibble.pircbot.PircBot;
-import org.jibble.pircbot.IrcException;
 import org.jibble.pircbot.User;
 import org.kohsuke.jnt.ConnectionInfo;
 import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
-import org.kohsuke.jnt.JNIssueComponent;
 import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -186,9 +178,6 @@ public class IrcBotImpl extends PircBot {
     }
 
     public static void main(String[] args) throws Exception {
-        new IrcBotImpl().createComponent("test-component","kohsuke");
-        System.exit(0);
-
         IrcBotImpl bot = new IrcBotImpl();
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
