@@ -88,6 +88,7 @@ public class IrcBotImpl extends PircBot {
         while (!isConnected()) {
             try {
                 reconnect();
+                joinChannel("#hudson");
             } catch (Exception e) {
                 e.printStackTrace();
                 try {
