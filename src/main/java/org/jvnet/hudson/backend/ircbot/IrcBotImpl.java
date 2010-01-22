@@ -8,7 +8,9 @@ import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
+import org.dom4j.io.OutputFormat;
 import org.dom4j.io.SAXReader;
+import org.dom4j.io.XMLWriter;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
 import org.kohsuke.jnt.ConnectionInfo;
@@ -18,6 +20,7 @@ import org.xml.sax.SAXException;
 
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.StringWriter;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -147,7 +150,7 @@ public class IrcBotImpl extends PircBot {
             createComponent(subcomponent, owner);
             sendMessage(channel,"New component created");
         } catch (Exception e) {
-            sendMessage(channel,"Failed to create a new component"+e.getMessage());
+            sendMessage(channel,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
         }
     }
@@ -170,10 +173,22 @@ public class IrcBotImpl extends PircBot {
         WebResponse rsp = wc.getResponse(req);
 
         // did it result in an error?
+        System.out.println(rsp.getText());
         Document tree = new SAXReader(new SAXParser()).read(new StringReader(rsp.getText()));
         Element e = (Element) tree.selectSingleNode("//*[@class='errMsg']");
-        if (e!=null)
-            throw new ProcessingException(e.getTextTrim());
+        if (e==null)
+            e = (Element) tree.selectSingleNode("//*[@class='errorArea']");
+        if (e!=null) {
+            StringWriter w = new StringWriter();
+            new XMLWriter(w, OutputFormat.createCompactFormat()) {
+                // just print text
+                @Override
+                protected void writeElement(Element element) throws IOException {
+                    writeElementContent(element);
+                }
+            }.write(e);
+            throw new ProcessingException(w.toString());
+        }
     }
 
     public static void main(String[] args) throws Exception {
