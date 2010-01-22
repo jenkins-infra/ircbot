@@ -109,7 +109,7 @@ public class IrcBotImpl extends PircBot {
      */
     private void grantCommitAccess(String channel, String sender, String id) {
         if (!isSenderAuthorized(channel,sender)) {
-            sendMessage(channel,"Only people with + or @ can run this command.");
+            insufficientPermissionError(channel);
             return;
         }
 
@@ -125,12 +125,19 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
+    private void insufficientPermissionError(String channel) {
+        sendMessage(channel,"Only people with + or @ can run this command.");
+        // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
+        sendRawLine("NAMES #hudson");
+        sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
+    }
+
     /**
      * Creates an issue tracker component.
      */
     private void createComponent(String channel, String sender, String subcomponent, String owner) {
         if (!isSenderAuthorized(channel,sender)) {
-            sendMessage(channel,"Only people with + or @ can run this command.");
+            insufficientPermissionError(channel);
             return;
         }
 
@@ -139,16 +146,7 @@ public class IrcBotImpl extends PircBot {
         try {
             createComponent(subcomponent, owner);
             sendMessage(channel,"New component created");
-        } catch (IOException e) {
-            sendMessage(channel,"Failed to create a new component"+e.getMessage());
-            e.printStackTrace();
-        } catch (SAXException e) {
-            sendMessage(channel,"Failed to create a new component"+e.getMessage());
-            e.printStackTrace();
-        } catch (ProcessingException e) {
-            sendMessage(channel,"Failed to create a new component: "+e.getMessage());
-            e.printStackTrace();
-        } catch (DocumentException e) {
+        } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component"+e.getMessage());
             e.printStackTrace();
         }
