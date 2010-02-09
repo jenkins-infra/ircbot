@@ -3,6 +3,7 @@ package org.jvnet.hudson.backend.ircbot;
 import com.meterware.httpunit.ClientProperties;
 import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
+import com.meterware.httpunit.WebForm;
 import com.meterware.httpunit.WebResponse;
 import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
@@ -148,6 +149,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             createComponent(subcomponent, owner);
+            setDefaultAssignee(subcomponent, DefaultAssignee.COMPONENT_LEAD);
             sendMessage(channel,"New component created");
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
@@ -164,17 +166,22 @@ public class IrcBotImpl extends PircBot {
         wc.setExceptionsThrownOnErrorStatus(true);
         
         PostMethodWebRequest req = new PostMethodWebRequest("http://issues.hudson-ci.org/secure/project/AddComponent.jspa");
-        req.setParameter("pid","10172"); // TODO: use JIRA SOAP API to get this ID.
+        req.setParameter("pid", getProjectId());
         req.setParameter("os_username",con.userName);
         req.setParameter("os_password",con.password);
         req.setParameter("name",subcomponent);
         req.setParameter("description",subcomponent+" plugin");
         req.setParameter("componentLead",owner);
-        WebResponse rsp = wc.getResponse(req);
+        checkError(wc.getResponse(req));
+    }
 
-        // did it result in an error?
+    /**
+     * Check if this submission resulted in an error, and if so, report an exception.
+     */
+    private WebResponse checkError(WebResponse rsp) throws DocumentException, IOException, ProcessingException {
         System.out.println(rsp.getText());
-        Document tree = new SAXReader(new SAXParser()).read(new StringReader(rsp.getText()));
+
+        Document tree = asDom(rsp);
         Element e = (Element) tree.selectSingleNode("//*[@class='errMsg']");
         if (e==null)
             e = (Element) tree.selectSingleNode("//*[@class='errorArea']");
@@ -189,6 +196,54 @@ public class IrcBotImpl extends PircBot {
             }.write(e);
             throw new ProcessingException(w.toString());
         }
+        return rsp;
+    }
+
+    private Document asDom(WebResponse rsp) throws DocumentException, IOException {
+        return new SAXReader(new SAXParser()).read(new StringReader(rsp.getText()));
+    }
+
+    private String getProjectId() {
+        // TODO: use JIRA SOAP API to get this ID.
+        return "10172";
+    }
+
+    enum DefaultAssignee {
+        PROJECT_DEFAULT,
+        COMPONENT_LEAD,
+        PROJECT_LEAD,
+        UNASSIGNED
+    }
+
+    private void setDefaultAssignee(String component, DefaultAssignee assignee) throws Exception {
+        WebConversation wc = createAuthenticatedSession();
+
+        WebResponse rsp = wc.getResponse("http://issues.hudson-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId="+getProjectId());
+        Document dom = asDom(rsp);
+        Element row = (Element)dom.selectSingleNode("//TABLE[@class='grid']/TR[TD[1]='"+component+"']");
+        // figure out the name field
+        Element r = (Element)row.selectSingleNode(".//INPUT[@type='radio']");
+        String name = r.attributeValue("name");
+
+        WebForm f = rsp.getFormWithName("jiraform");
+        f.setParameter(name,String.valueOf(assignee.ordinal()));
+        checkError(f.submit());
+    }
+
+    /**
+     * Creates a conversation that's already logged in as the current user.
+     */
+    private WebConversation createAuthenticatedSession() throws ProcessingException, DocumentException, IOException, SAXException {
+        ConnectionInfo con = new ConnectionInfo();
+        WebConversation wc = new WebConversation();
+        wc.setExceptionsThrownOnErrorStatus(true);
+
+        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.hudson-ci.org/login.jsp");
+        req.setParameter("os_username",con.userName);
+        req.setParameter("os_password",con.password);
+        checkError(wc.getResponse(req));
+
+        return wc;
     }
 
     public static void main(String[] args) throws Exception {
