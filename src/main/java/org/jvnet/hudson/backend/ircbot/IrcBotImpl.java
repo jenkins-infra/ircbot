@@ -19,7 +19,10 @@ import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
 import org.xml.sax.SAXException;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.util.regex.Matcher;
@@ -31,8 +34,14 @@ import java.util.regex.Pattern;
  * @author Kohsuke Kawaguchi
  */
 public class IrcBotImpl extends PircBot {
-    public IrcBotImpl() {
+    /**
+     * Records commands that we didn't understand.
+     */
+    private File unknownCommands;
+
+    public IrcBotImpl(File unknownCommands) {
         setName("hudson-admin");
+        this.unknownCommands = unknownCommands;
     }
 
     @Override
@@ -68,6 +77,14 @@ public class IrcBotImpl extends PircBot {
         }
 
         sendMessage(channel,"I didn't understand the command");
+
+        try {
+            PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
+            w.println(payload);
+            w.close();
+        } catch (IOException e) {// if we fail to write, let it be.
+            e.printStackTrace();
+        }
     }
 
     /**
@@ -247,7 +264,7 @@ public class IrcBotImpl extends PircBot {
     }
 
     public static void main(String[] args) throws Exception {
-        IrcBotImpl bot = new IrcBotImpl();
+        IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
         bot.joinChannel("#hudson");
