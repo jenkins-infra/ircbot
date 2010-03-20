@@ -5,6 +5,10 @@ import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
 import com.meterware.httpunit.WebForm;
 import com.meterware.httpunit.WebResponse;
+import hudson.plugins.jira.soap.JiraSoapService;
+import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
+import hudson.plugins.jira.soap.RemoteIssue;
+import hudson.plugins.jira.soap.RemoteStatus;
 import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -19,12 +23,16 @@ import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
 import org.xml.sax.SAXException;
 
+import javax.xml.rpc.ServiceException;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.rmi.RemoteException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,9 +57,18 @@ public class IrcBotImpl extends PircBot {
         if (!channel.equals("#hudson"))     return; // not in this channel
 
         String prefix = getNick() + ":";
-        if (!message.startsWith(prefix))  return;   // not send to me
+        message = message.toLowerCase();
+        if (!message.startsWith(prefix)) {
+            // not send to me
+            Matcher m = Pattern.compile("(?:HUDSON-|bug )([0-9]+)").matcher(message);
+            if (m.matches()) {
+                replyBugStatus(channel,m.group(1));
+                return;
+            }
+            return;
+        }
 
-        String payload = message.substring(prefix.length(), message.length()).trim().toLowerCase();
+        String payload = message.substring(prefix.length(), message.length()).trim();
 
         Matcher m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*").matcher(payload);
         if (m.matches()) {
@@ -85,6 +102,31 @@ public class IrcBotImpl extends PircBot {
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
         }
+    }
+
+    private void replyBugStatus(String channel, String number) {
+        try {
+            sendMessage(channel, getSummary(number));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String getSummary(String number) throws ServiceException, RemoteException, ProcessingException, MalformedURLException {
+        JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.hudson-ci.org/rpc/soap/jirasoapservice-v2"));
+        ConnectionInfo con = new ConnectionInfo();
+        String token = svc.login(con.userName, con.password);
+        RemoteIssue issue = svc.getIssue(token, "HUDSON-" + number);
+        return String.format("%s:%s (%s) %s",
+                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://hudson-ci.org/issue/"+number);
+    }
+
+    private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
+        RemoteStatus[] statuses = svc.getStatuses(token);
+        for (RemoteStatus s : statuses)
+            if(s.getId().equals(statusId))
+                return s;
+        return null;
     }
 
     /**
