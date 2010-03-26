@@ -60,7 +60,7 @@ public class IrcBotImpl extends PircBot {
         message = message.toLowerCase();
         if (!message.startsWith(prefix)) {
             // not send to me
-            Matcher m = Pattern.compile("(?:HUDSON-|bug )([0-9]+)").matcher(message);
+            Matcher m = Pattern.compile("(?:hudson-|bug )([0-9]+)").matcher(message);
             if (m.matches()) {
                 replyBugStatus(channel,m.group(1));
                 return;
