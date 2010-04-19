@@ -91,6 +91,12 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("fork (\\S+)/(\\S+) on github").matcher(payload);
+        if (m.matches()) {
+            forkGitHub(channel, m.group(1),m.group(2));
+            return;
+        }
+
         m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access) (on|in) github").matcher(payload);
         if (m.matches()) {
             addCollaborators(channel, m.group(1));
@@ -286,6 +292,21 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void forkGitHub(String channel, String owner, String repo) {
+        try {
+            GitHub github = GitHub.connect();
+            GHRepository r = github.getUser(owner).getRepository(repo).fork();
+            // all existing committers should be granted access right away
+            r.addCollaborators(github.getMyself().getFollows());
+            sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
+            // the original owner of the repository should become a committer
+            addCollaborators(channel,owner);
+        } catch (IOException e) {
+            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
         }
     }
