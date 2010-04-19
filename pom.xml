@@ -37,6 +37,7 @@
       </plugin>
     </plugins>
   </build>
+  
   <dependencies>
     <dependency>
       <groupId>org.jvnet.hudson</groupId>
@@ -52,6 +53,11 @@
       <groupId>javanettasks</groupId>
       <artifactId>javanettasks</artifactId>
       <version>1.0.27</version>
+    </dependency>
+    <dependency>
+      <groupId>org.kohsuke</groupId>
+      <artifactId>github-api</artifactId>
+      <version>1.1</version>
     </dependency>
   </dependencies>
 </project>

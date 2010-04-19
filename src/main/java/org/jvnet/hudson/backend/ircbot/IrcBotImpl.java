@@ -18,6 +18,9 @@ import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
+import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GHUser;
+import org.kohsuke.github.GitHub;
 import org.kohsuke.jnt.ConnectionInfo;
 import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
@@ -74,8 +77,27 @@ public class IrcBotImpl extends PircBot {
         }
 
         String payload = message.substring(prefix.length(), message.length()).trim();
+        Matcher m;
 
-        Matcher m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*").matcher(payload);
+        m = Pattern.compile("(?:create|make) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?").matcher(payload);
+        if (m.matches()) {
+            createGitHubRepository(channel, m.group(1), m.group(2));
+            return;
+        }
+
+        m = Pattern.compile("add (\\S+) as (a )?github collaborator").matcher(payload);
+        if (m.matches()) {
+            addCollaborators(channel, m.group(1));
+            return;
+        }
+
+        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access) (on|in) github").matcher(payload);
+        if (m.matches()) {
+            addCollaborators(channel, m.group(1));
+            return;
+        }
+
+        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*").matcher(payload);
         if (m.matches()) {
             grantCommitAccess(channel, sender, m.group(1));
             return;
@@ -237,6 +259,35 @@ public class IrcBotImpl extends PircBot {
         req.setParameter("description",subcomponent+" plugin");
         req.setParameter("componentLead",owner);
         checkError(wc.getResponse(req));
+    }
+
+    private void createGitHubRepository(String channel, String name, String collaborator) {
+        try {
+            if (collaborator!=null)
+                addCollaborators(channel,collaborator);
+            GitHub github = GitHub.connect();
+            GHRepository r = github.createRepository(name, null, null, true);
+            // all existing committers should be granted access right away
+            r.addCollaborators(github.getMyself().getFollows());
+            sendMessage(channel,"New github repository created at "+r.getUrl());
+        } catch (IOException e) {
+            sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private void addCollaborators(String channel, String collaborator) {
+        try {
+            GitHub github = GitHub.connect();
+            GHUser c = github.getUser(collaborator);
+            c.follow(); // this lets Hudson remember who are 'committers'
+            for (GHRepository r : github.getMyself().getRepositories().values())
+                r.addCollaborators(c);
+            sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
+        } catch (IOException e) {
+            sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     /**
