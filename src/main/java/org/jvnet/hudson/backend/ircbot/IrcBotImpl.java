@@ -45,6 +45,8 @@ import java.security.cert.X509Certificate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.regex.Pattern.CASE_INSENSITIVE;
+
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
  *
@@ -66,10 +68,9 @@ public class IrcBotImpl extends PircBot {
         if (!channel.equals("#hudson"))     return; // not in this channel
 
         String prefix = getNick() + ":";
-        message = message.toLowerCase();
         if (!message.startsWith(prefix)) {
             // not send to me
-            Matcher m = Pattern.compile("(?:hudson-|bug )([0-9]+)").matcher(message);
+            Matcher m = Pattern.compile("(?:hudson-|bug )([0-9]+)",CASE_INSENSITIVE).matcher(message);
             while (m.find()) {
                 replyBugStatus(channel,m.group(1));
             }
@@ -79,48 +80,48 @@ public class IrcBotImpl extends PircBot {
         String payload = message.substring(prefix.length(), message.length()).trim();
         Matcher m;
 
-        m = Pattern.compile("(?:create|make) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?").matcher(payload);
+        m = Pattern.compile("(?:create|make) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createGitHubRepository(channel, m.group(1), m.group(2));
             return;
         }
 
-        m = Pattern.compile("add (\\S+) as (a )?github collaborator").matcher(payload);
+        m = Pattern.compile("add (\\S+) as (a )?github collaborator",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addCollaborators(channel, m.group(1));
             return;
         }
 
-        m = Pattern.compile("fork (\\S+)/(\\S+) on github").matcher(payload);
+        m = Pattern.compile("fork (\\S+)/(\\S+) on github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             forkGitHub(channel, m.group(1),m.group(2));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access) (on|in) github").matcher(payload);
+        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addCollaborators(channel, m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*").matcher(payload);
+        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantCommitAccess(channel, sender, m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:create|make) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)").matcher(payload);
+        m = Pattern.compile("(?:create|make) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
             return;
         }
 
-        if (payload.equals("help")) {
+        if (payload.equalsIgnoreCase("help")) {
             help(channel);
             return;
         }
 
-        if (payload.equals("refresh")) {
+        if (payload.equalsIgnoreCase("refresh")) {
             // get the updated list
             sendRawLine("NAMES #hudson");
             return;
@@ -299,7 +300,17 @@ public class IrcBotImpl extends PircBot {
     private void forkGitHub(String channel, String owner, String repo) {
         try {
             GitHub github = GitHub.connect();
-            GHRepository r = github.getUser(owner).getRepository(repo).fork();
+            GHUser user = github.getUser(owner);
+            if (user==null) {
+                sendMessage(channel,"No such user: "+owner);
+                return;
+            }
+            GHRepository orig = user.getRepository(repo);
+            if (orig==null) {
+                sendMessage(channel,"No such repository: "+repo);
+                return;
+            }
+            GHRepository r = orig.fork();
             // all existing committers should be granted access right away
             r.addCollaborators(github.getMyself().getFollows());
             sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
