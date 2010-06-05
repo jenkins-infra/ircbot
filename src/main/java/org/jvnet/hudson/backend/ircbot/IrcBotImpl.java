@@ -80,7 +80,7 @@ public class IrcBotImpl extends PircBot {
         String payload = message.substring(prefix.length(), message.length()).trim();
         Matcher m;
 
-        m = Pattern.compile("(?:create|make) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createGitHubRepository(channel, m.group(1), m.group(2));
             return;
@@ -98,19 +98,19 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committer|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addCollaborators(channel, m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant) (\\S+) (a )?(committer|commit access).*",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committer|commit access).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantCommitAccess(channel, sender, m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:create|make) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
             return;
