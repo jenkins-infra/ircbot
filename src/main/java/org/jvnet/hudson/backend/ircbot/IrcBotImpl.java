@@ -66,6 +66,7 @@ public class IrcBotImpl extends PircBot {
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
         if (!channel.equals("#hudson"))     return; // not in this channel
+        if (sender.equals("hudsonci_builds"))   return; // ignore messages from other bots
 
         String prefix = getNick() + ":";
         if (!message.startsWith(prefix)) {
