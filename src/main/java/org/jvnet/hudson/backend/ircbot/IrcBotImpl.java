@@ -293,7 +293,8 @@ public class IrcBotImpl extends PircBot {
             GHUser c = github.getUser(collaborator);
             c.follow(); // this lets Hudson remember who are 'committers'
             for (GHRepository r : github.getMyself().getRepositories().values()) {
-                if (r.getDescription().contains("[restricted]"))     continue; // repositories with more restricted commit access
+                String d = r.getDescription();
+                if (d!=null && d.contains("[restricted]"))     continue; // repositories with more restricted commit access
                 r.addCollaborators(c);
             }
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
