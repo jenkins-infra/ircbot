@@ -89,7 +89,7 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("add (\\S+) as (a )?github collaborator",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addCollaborators(channel, m.group(1));
+            addToExistingRepositoriesAsCollaborator(channel, m.group(1));
             return;
         }
 
@@ -101,7 +101,7 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committer|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addCollaborators(channel, m.group(1));
+            addToExistingRepositoriesAsCollaborator(channel, m.group(1));
             return;
         }
 
@@ -272,7 +272,7 @@ public class IrcBotImpl extends PircBot {
     private void createGitHubRepository(String channel, String name, String collaborator) {
         try {
             if (collaborator!=null)
-                addCollaborators(channel,collaborator);
+                addToExistingRepositoriesAsCollaborator(channel,collaborator);
             GitHub github = GitHub.connect();
             GHRepository r = github.createRepository(name, null, null, true);
             // all existing committers should be granted access right away
@@ -284,13 +284,18 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void addCollaborators(String channel, String collaborator) {
+    /**
+     * Adds a new collaborator to existing repositories.
+     */
+    private void addToExistingRepositoriesAsCollaborator(String channel, String collaborator) {
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             c.follow(); // this lets Hudson remember who are 'committers'
-            for (GHRepository r : github.getMyself().getRepositories().values())
+            for (GHRepository r : github.getMyself().getRepositories().values()) {
+                if (r.getDescription().contains("[restricted]"))     continue; // repositories with more restricted commit access
                 r.addCollaborators(c);
+            }
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
@@ -316,7 +321,7 @@ public class IrcBotImpl extends PircBot {
             r.addCollaborators(github.getMyself().getFollows());
             sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
             // the original owner of the repository should become a committer
-            addCollaborators(channel,owner);
+            addToExistingRepositoriesAsCollaborator(channel,owner);
         } catch (IOException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
