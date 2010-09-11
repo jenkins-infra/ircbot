@@ -9,6 +9,7 @@ import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
+import org.apache.commons.io.IOUtils;
 import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -42,6 +43,7 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
+import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -114,6 +116,11 @@ public class IrcBotImpl extends PircBot {
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
+            return;
+        }
+
+        if (payload.equalsIgnoreCase("version")) {
+            version(channel);
             return;
         }
 
@@ -200,6 +207,16 @@ public class IrcBotImpl extends PircBot {
 
     private void help(String channel) {
         sendMessage(channel,"See http://wiki.hudson-ci.org/display/HUDSON/IRC+Bot");
+    }
+
+    private void version(String channel) {
+        try {
+            String v = IOUtils.toString(getClass().getClassLoader().getResourceAsStream("version.txt"));
+            sendMessage(channel,"My version is "+v);
+        } catch (IOException e) {
+            e.printStackTrace();
+            sendMessage(channel,"I don't know who I am");
+        }
     }
 
     /**
