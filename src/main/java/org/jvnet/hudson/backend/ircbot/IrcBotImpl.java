@@ -87,7 +87,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("add (\\S+) as (a )?github collaborator",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("add (\\S+) as (a )?github collaborator|committer",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addToExistingRepositoriesAsCollaborator(channel, m.group(1));
             return;
@@ -100,12 +100,6 @@ public class IrcBotImpl extends PircBot {
         }
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            addToExistingRepositoriesAsCollaborator(channel, m.group(1));
-            return;
-        }
-
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?github committ?er",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addToExistingRepositoriesAsCollaborator(channel, m.group(1));
             return;
