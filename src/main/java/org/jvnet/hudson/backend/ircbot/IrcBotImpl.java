@@ -87,7 +87,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("add (\\S+) as (a )?github collaborator|committer",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addToExistingRepositoriesAsCollaborator(channel, m.group(1));
             return;
