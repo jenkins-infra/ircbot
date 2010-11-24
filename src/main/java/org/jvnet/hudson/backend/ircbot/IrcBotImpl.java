@@ -290,7 +290,7 @@ public class IrcBotImpl extends PircBot {
             if (collaborator!=null)
                 addToExistingRepositoriesAsCollaborator(channel,collaborator);
             GitHub github = GitHub.connect();
-            GHRepository r = github.getOrganization("hudson").createRepository(name,null,null,"Everyone",true);
+            GHRepository r = github.getOrganization("hudson").createRepository(name,"","","Everyone",true);
             sendMessage(channel,"New github repository created at "+r.getUrl());
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
