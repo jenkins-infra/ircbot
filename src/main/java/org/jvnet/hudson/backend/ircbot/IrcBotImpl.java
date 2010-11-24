@@ -43,7 +43,6 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
-import java.util.jar.Manifest;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -291,9 +290,7 @@ public class IrcBotImpl extends PircBot {
             if (collaborator!=null)
                 addToExistingRepositoriesAsCollaborator(channel,collaborator);
             GitHub github = GitHub.connect();
-            GHRepository r = github.createRepository(name, null, null, true);
-            // all existing committers should be granted access right away
-            r.addCollaborators(github.getMyself().getFollows());
+            GHRepository r = github.getOrganization("hudson").createRepository(name,null,null,"Everyone",true);
             sendMessage(channel,"New github repository created at "+r.getUrl());
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
@@ -308,12 +305,7 @@ public class IrcBotImpl extends PircBot {
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
-            c.follow(); // this lets Hudson remember who are 'committers'
-            for (GHRepository r : github.getMyself().getRepositories().values()) {
-                String d = r.getDescription();
-                if (d!=null && d.contains("[restricted]"))     continue; // repositories with more restricted commit access
-                r.addCollaborators(c);
-            }
+            github.getOrganization("hudson").getTeams().get("Everyone").add(c);
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
@@ -322,28 +314,30 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void forkGitHub(String channel, String owner, String repo) {
-        try {
-            GitHub github = GitHub.connect();
-            GHUser user = github.getUser(owner);
-            if (user==null) {
-                sendMessage(channel,"No such user: "+owner);
-                return;
-            }
-            GHRepository orig = user.getRepository(repo);
-            if (orig==null) {
-                sendMessage(channel,"No such repository: "+repo);
-                return;
-            }
-            GHRepository r = orig.fork();
-            // all existing committers should be granted access right away
-            r.addCollaborators(github.getMyself().getFollows());
-            sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
-            // the original owner of the repository should become a committer
-            addToExistingRepositoriesAsCollaborator(channel,owner);
-        } catch (IOException e) {
-            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
-            e.printStackTrace();
-        }
+            sendMessage(channel,"Operation is not supported yet");
+
+//        try {
+//            GitHub github = GitHub.connect();
+//            GHUser user = github.getUser(owner);
+//            if (user==null) {
+//                sendMessage(channel,"No such user: "+owner);
+//                return;
+//            }
+//            GHRepository orig = user.getRepository(repo);
+//            if (orig==null) {
+//                sendMessage(channel,"No such repository: "+repo);
+//                return;
+//            }
+//            GHRepository r = orig.fork();
+//            // all existing committers should be granted access right away
+//            r.addCollaborators(github.getMyself().getFollows());
+//            sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
+//            // the original owner of the repository should become a committer
+//            addToExistingRepositoriesAsCollaborator(channel,owner);
+//        } catch (IOException e) {
+//            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
+//            e.printStackTrace();
+//        }
     }
 
     /**
