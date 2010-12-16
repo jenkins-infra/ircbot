@@ -103,9 +103,9 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("fork (\\S+)/(\\S+) on github",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("fork (\\S+)/(\\S+) on github(?: as (\\S+))",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, m.group(1),m.group(2));
+            forkGitHub(channel, m.group(1),m.group(2),m.group(3));
             return;
         }
 
@@ -336,7 +336,11 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void forkGitHub(String channel, String owner, String repo) {
+    /**
+     * @param newName
+     *      If not null, rename a epository after a fork.
+     */
+    private void forkGitHub(String channel, String owner, String repo, String newName) {
         try {
             GitHub github = GitHub.connect();
             GHUser user = github.getUser(owner);
@@ -352,6 +356,8 @@ public class IrcBotImpl extends PircBot {
 
             GHOrganization org = github.getOrganization("hudson");
             GHRepository r = orig.forkTo(org);
+            if (newName!=null)
+                r.renameTo(newName);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             t.add(user);    // the user immediately joins this team
