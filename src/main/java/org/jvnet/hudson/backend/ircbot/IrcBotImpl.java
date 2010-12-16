@@ -19,7 +19,10 @@ import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
+import org.kohsuke.github.GHOrganization;
+import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHRepository;
+import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.jnt.ConnectionInfo;
@@ -90,7 +93,13 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addToExistingRepositoriesAsCollaborator(channel, m.group(1));
+            addGitHubCommitter(channel, m.group(1),null);
+            return;
+        }
+
+        m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            addGitHubCommitter(channel, m.group(1), m.group(4));
             return;
         }
 
@@ -102,7 +111,7 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addToExistingRepositoriesAsCollaborator(channel, m.group(1));
+            addGitHubCommitter(channel, m.group(1),null);
             return;
         }
 
@@ -287,10 +296,14 @@ public class IrcBotImpl extends PircBot {
 
     private void createGitHubRepository(String channel, String name, String collaborator) {
         try {
-            if (collaborator!=null)
-                addToExistingRepositoriesAsCollaborator(channel,collaborator);
             GitHub github = GitHub.connect();
-            GHRepository r = github.getOrganization("hudson").createRepository(name,"","","Everyone",true);
+            GHOrganization org = github.getOrganization("hudson");
+            GHRepository r = org.createRepository(name,"","","Everyone",true);
+
+            GHTeam t = getOrCreateRepoLocalTeam(org, r);
+            if (collaborator!=null)
+                t.add(github.getUser(collaborator));
+
             sendMessage(channel,"New github repository created at "+r.getUrl());
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
@@ -300,12 +313,22 @@ public class IrcBotImpl extends PircBot {
 
     /**
      * Adds a new collaborator to existing repositories.
+     *
+     * @param justForThisRepo
+     *      Null to add to "Everyone", otherwise add him to a team specific repository.
      */
-    private void addToExistingRepositoriesAsCollaborator(String channel, String collaborator) {
+    private void addGitHubCommitter(String channel, String collaborator, String justForThisRepo) {
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
-            github.getOrganization("hudson").getTeams().get("Everyone").add(c);
+            GHOrganization o = github.getOrganization("hudson");
+            GHTeam t = justForThisRepo==null ? o.getTeams().get("Everyone") : o.getTeams().get(justForThisRepo+" Developers");
+            if (t==null) {
+                sendMessage(channel,"No team for "+justForThisRepo);
+                return;
+            }
+
+            t.add(c);
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
@@ -314,30 +337,46 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void forkGitHub(String channel, String owner, String repo) {
-            sendMessage(channel,"Operation is not supported yet");
+        try {
+            GitHub github = GitHub.connect();
+            GHUser user = github.getUser(owner);
+            if (user==null) {
+                sendMessage(channel,"No such user: "+owner);
+                return;
+            }
+            GHRepository orig = user.getRepository(repo);
+            if (orig==null) {
+                sendMessage(channel,"No such repository: "+repo);
+                return;
+            }
 
-//        try {
-//            GitHub github = GitHub.connect();
-//            GHUser user = github.getUser(owner);
-//            if (user==null) {
-//                sendMessage(channel,"No such user: "+owner);
-//                return;
-//            }
-//            GHRepository orig = user.getRepository(repo);
-//            if (orig==null) {
-//                sendMessage(channel,"No such repository: "+repo);
-//                return;
-//            }
-//            GHRepository r = orig.fork();
-//            // all existing committers should be granted access right away
-//            r.addCollaborators(github.getMyself().getFollows());
-//            sendMessage(channel,"Repository "+owner+"/"+repo+" forked into "+r.getUrl());
-//            // the original owner of the repository should become a committer
-//            addToExistingRepositoriesAsCollaborator(channel,owner);
-//        } catch (IOException e) {
-//            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
-//            e.printStackTrace();
-//        }
+            GHOrganization org = github.getOrganization("hudson");
+            GHRepository r = orig.forkTo(org);
+
+            GHTeam t = getOrCreateRepoLocalTeam(org, r);
+            t.add(user);    // the user immediately joins this team
+
+            // the Everyone group gets access to this new repository, too.
+            GHTeam everyone = org.getTeams().get("Everyone");
+            everyone.add(r);
+        } catch (IOException e) {
+            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Creates a repository local team, and grants access to the repository.
+     */
+    private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r) throws IOException {
+        String teamName = r.getName() + " Developers";
+        GHTeam t = org.getTeams().get(teamName);
+        if (t==null) {
+            t = org.createTeam(teamName, Permission.ADMIN, r);
+        } else {
+            t.add(r);
+        }
+        return t;
     }
 
     /**
