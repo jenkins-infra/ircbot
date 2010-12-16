@@ -53,6 +53,12 @@
       <groupId>javanettasks</groupId>
       <artifactId>javanettasks</artifactId>
       <version>1.0.27</version>
+      <exclusions>
+        <exclusion>
+          <groupId>nekohtml</groupId>
+          <artifactId>nekohtml</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.kohsuke</groupId>
