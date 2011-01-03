@@ -365,7 +365,7 @@ public class IrcBotImpl extends PircBot {
             // the Everyone group gets access to this new repository, too.
             GHTeam everyone = org.getTeams().get("Everyone");
             everyone.add(r);
-            sendMessage(channel,"Created https://github.com/hudson/"+repo);
+            sendMessage(channel,"Created https://github.com/hudson/"+(newName!=null?newName:repo));
         } catch (IOException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
