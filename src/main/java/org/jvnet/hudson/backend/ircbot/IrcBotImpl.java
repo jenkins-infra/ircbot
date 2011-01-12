@@ -1,5 +1,7 @@
 package org.jvnet.hudson.backend.ircbot;
 
+import com.cloudbees.kenai.KRole;
+import com.cloudbees.kenai.Kenai;
 import com.meterware.httpunit.ClientProperties;
 import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
@@ -238,11 +240,12 @@ public class IrcBotImpl extends PircBot {
 
         sendMessage(channel,"Making "+id+" a committer");
         try {
-            JavaNet jn = JavaNet.connect();
-            jn.getProject("hudson").getMembership().grantRole(jn.getUser(id),"Developer");
-            jn.getProject("maven2-repository").getMembership().grantRole(jn.getUser(id),"javatools>maven2-repository.Maven Publisher");
+            Kenai kenai = Kenai.connectWithStoredCredential("https://java.net/", ".java.net2");
+            kenai.getProject("hudson").addRole(kenai.getUser(id), KRole.DEVELOPER);
+            // doesn't look like I have access anymore, and this appears to have failed to migrate the role, anyway.
+//            kenai.getProject("maven2-repository").addRole(kenai.getUser(id), KRole.DEVELOPER);
             sendMessage(channel,id +" is now a committer");
-        } catch (ProcessingException e) {
+        } catch (IOException e) {
             sendMessage(channel,"Failed to make "+id+" a committer: "+e.getMessage().replace('\n',' '));
             e.printStackTrace();
         }
