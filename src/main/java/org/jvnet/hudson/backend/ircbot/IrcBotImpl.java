@@ -170,7 +170,7 @@ public class IrcBotImpl extends PircBot {
         String token = svc.login(con.userName, con.password);
         RemoteIssue issue = svc.getIssue(token, "HUDSON-" + number);
         return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://hudson-ci.org/issue/"+number);
+                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://hudson-labs.org/issue/"+number);
     }
 
     private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
