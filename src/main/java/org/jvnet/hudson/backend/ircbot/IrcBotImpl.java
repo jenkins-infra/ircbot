@@ -71,13 +71,13 @@ public class IrcBotImpl extends PircBot {
 
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
-        if (!channel.equals("#hudson"))     return; // not in this channel
-        if (sender.equals("hudsonci_builds"))   return; // ignore messages from other bots
+        if (!channel.equals("#jenkins"))     return; // not in this channel
+        if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
 
         String prefix = getNick() + ":";
         if (!message.startsWith(prefix)) {
             // not send to me
-            Matcher m = Pattern.compile("(?:hudson-|bug )([0-9]+)",CASE_INSENSITIVE).matcher(message);
+            Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]+)",CASE_INSENSITIVE).matcher(message);
             while (m.find()) {
                 replyBugStatus(channel,m.group(1));
             }
@@ -141,7 +141,7 @@ public class IrcBotImpl extends PircBot {
 
         if (payload.equalsIgnoreCase("refresh")) {
             // get the updated list
-            sendRawLine("NAMES #hudson");
+            sendRawLine("NAMES #jenkins");
             return;
         }
 
@@ -170,7 +170,7 @@ public class IrcBotImpl extends PircBot {
         String token = svc.login(con.userName, con.password);
         RemoteIssue issue = svc.getIssue(token, "HUDSON-" + number);
         return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://hudson-labs.org/issue/"+number);
+                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://jenkins-ci.org/issue/"+number);
     }
 
     private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
@@ -203,7 +203,7 @@ public class IrcBotImpl extends PircBot {
         while (!isConnected()) {
             try {
                 reconnect();
-                joinChannel("#hudson");
+                joinChannel("#jenkins");
             } catch (Exception e) {
                 e.printStackTrace();
                 try {
@@ -216,7 +216,7 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void help(String channel) {
-        sendMessage(channel,"See http://wiki.hudson-ci.org/display/HUDSON/IRC+Bot");
+        sendMessage(channel,"See http://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot");
     }
 
     private void version(String channel) {
@@ -254,7 +254,7 @@ public class IrcBotImpl extends PircBot {
     private void insufficientPermissionError(String channel) {
         sendMessage(channel,"Only people with + or @ can run this command.");
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
-        sendRawLine("NAMES #hudson");
+        sendRawLine("NAMES #jenkins");
         sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
     }
 
@@ -287,7 +287,7 @@ public class IrcBotImpl extends PircBot {
         WebConversation wc = new WebConversation();
         wc.setExceptionsThrownOnErrorStatus(true);
         
-        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.hudson-ci.org/secure/project/AddComponent.jspa");
+        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.jenkins-ci.org/secure/project/AddComponent.jspa");
         req.setParameter("pid", getProjectId());
         req.setParameter("os_username",con.userName);
         req.setParameter("os_password",con.password);
@@ -432,7 +432,7 @@ public class IrcBotImpl extends PircBot {
     private void setDefaultAssignee(String component, DefaultAssignee assignee) throws Exception {
         WebConversation wc = createAuthenticatedSession();
 
-        WebResponse rsp = wc.getResponse("http://issues.hudson-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId="+getProjectId());
+        WebResponse rsp = wc.getResponse("http://issues.jenkins-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId="+getProjectId());
         Document dom = asDom(rsp);
         Element row = (Element)dom.selectSingleNode("//TABLE[@class='grid']/TR[TD[1]='"+component+"']");
         // figure out the name field
@@ -452,7 +452,7 @@ public class IrcBotImpl extends PircBot {
         WebConversation wc = new WebConversation();
         wc.setExceptionsThrownOnErrorStatus(true);
 
-        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.hudson-ci.org/login.jsp");
+        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.jenkins-ci.org/login.jsp");
         req.setParameter("os_username",con.userName);
         req.setParameter("os_password",con.password);
         checkError(wc.getResponse(req));
@@ -464,7 +464,7 @@ public class IrcBotImpl extends PircBot {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
-        bot.joinChannel("#hudson");
+        bot.joinChannel("#jenkins");
     }
 
     static {
