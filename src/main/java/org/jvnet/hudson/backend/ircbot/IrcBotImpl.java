@@ -28,7 +28,6 @@ import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
 import org.kohsuke.jnt.ConnectionInfo;
-import org.kohsuke.jnt.JavaNet;
 import org.kohsuke.jnt.ProcessingException;
 import org.xml.sax.SAXException;
 
@@ -65,7 +64,7 @@ public class IrcBotImpl extends PircBot {
     private File unknownCommands;
 
     public IrcBotImpl(File unknownCommands) {
-        setName("hudson-admin");
+        setName("jenkins-admin");
         this.unknownCommands = unknownCommands;
     }
 
