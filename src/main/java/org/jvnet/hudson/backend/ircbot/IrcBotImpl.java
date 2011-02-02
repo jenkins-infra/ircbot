@@ -164,10 +164,10 @@ public class IrcBotImpl extends PircBot {
     }
 
     private String getSummary(String number) throws ServiceException, RemoteException, ProcessingException, MalformedURLException {
-        JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.hudson-ci.org/rpc/soap/jirasoapservice-v2"));
+        JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
         ConnectionInfo con = new ConnectionInfo();
         String token = svc.login(con.userName, con.password);
-        RemoteIssue issue = svc.getIssue(token, "HUDSON-" + number);
+        RemoteIssue issue = svc.getIssue(token, "JENKINS-" + number);
         return String.format("%s:%s (%s) %s",
                 issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://jenkins-ci.org/issue/"+number);
     }
@@ -240,7 +240,7 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,"Making "+id+" a committer");
         try {
             Kenai kenai = Kenai.connectWithStoredCredential("https://java.net/", ".java.net2");
-            kenai.getProject("hudson").addRole(kenai.getUser(id), KRole.DEVELOPER);
+            kenai.getProject("jenkins").addRole(kenai.getUser(id), KRole.DEVELOPER);
             // doesn't look like I have access anymore, and this appears to have failed to migrate the role, anyway.
 //            kenai.getProject("maven2-repository").addRole(kenai.getUser(id), KRole.DEVELOPER);
             sendMessage(channel,id +" is now a committer");
@@ -299,7 +299,7 @@ public class IrcBotImpl extends PircBot {
     private void createGitHubRepository(String channel, String name, String collaborator) {
         try {
             GitHub github = GitHub.connect();
-            GHOrganization org = github.getOrganization("hudson");
+            GHOrganization org = github.getOrganization("jenkinsci");
             GHRepository r = org.createRepository(name,"","","Everyone",true);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
@@ -323,7 +323,7 @@ public class IrcBotImpl extends PircBot {
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
-            GHOrganization o = github.getOrganization("hudson");
+            GHOrganization o = github.getOrganization("jenkinsci");
             GHTeam t = justForThisRepo==null ? o.getTeams().get("Everyone") : o.getTeams().get(justForThisRepo+" Developers");
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
@@ -356,7 +356,7 @@ public class IrcBotImpl extends PircBot {
                 return;
             }
 
-            GHOrganization org = github.getOrganization("hudson");
+            GHOrganization org = github.getOrganization("jenkinsci");
             GHRepository r = orig.forkTo(org);
             if (newName!=null)
                 r.renameTo(newName);
@@ -367,7 +367,7 @@ public class IrcBotImpl extends PircBot {
             // the Everyone group gets access to this new repository, too.
             GHTeam everyone = org.getTeams().get("Everyone");
             everyone.add(r);
-            sendMessage(channel,"Created https://github.com/hudson/"+(newName!=null?newName:repo));
+            sendMessage(channel,"Created https://github.com/jenkinsci/"+(newName!=null?newName:repo));
         } catch (IOException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
