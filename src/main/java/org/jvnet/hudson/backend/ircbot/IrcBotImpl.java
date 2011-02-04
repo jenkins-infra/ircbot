@@ -11,6 +11,7 @@ import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
+import org.apache.axis.collections.LRUMap;
 import org.apache.commons.io.IOUtils;
 import org.cyberneko.html.parsers.SAXParser;
 import org.dom4j.Document;
@@ -47,6 +48,9 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -62,6 +66,12 @@ public class IrcBotImpl extends PircBot {
      * Records commands that we didn't understand.
      */
     private File unknownCommands;
+
+    /**
+     * Map from the issue number to the time it was last mentioned.
+     * Used so that we don't repeatedly mention the same issues.
+     */
+    private final Map recentIssues = Collections.synchronizedMap(new LRUMap(10));
 
     public IrcBotImpl(File unknownCommands) {
         setName("jenkins-admin");
@@ -156,6 +166,16 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void replyBugStatus(String channel, String number) {
+        Long time = (Long)recentIssues.get(number);
+
+        recentIssues.put(number,System.currentTimeMillis());
+
+        if (time!=null) {
+            if (System.currentTimeMillis()-time < 60*1000) {
+                return; // already mentioned recently. don't repeat
+            }
+        }
+
         try {
             sendMessage(channel, getSummary(number));
         } catch (Exception e) {
