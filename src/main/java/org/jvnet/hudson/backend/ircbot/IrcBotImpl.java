@@ -165,7 +165,7 @@ public class IrcBotImpl extends PircBot {
 
     private String getSummary(String number) throws ServiceException, RemoteException, ProcessingException, MalformedURLException {
         JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
-        ConnectionInfo con = new ConnectionInfo();
+        ConnectionInfo con = new ConnectionInfo(new File(new File(System.getProperty("user.home")),".jenkins-ci.org"));
         String token = svc.login(con.userName, con.password);
         RemoteIssue issue = svc.getIssue(token, "JENKINS-" + number);
         return String.format("%s:%s (%s) %s",
