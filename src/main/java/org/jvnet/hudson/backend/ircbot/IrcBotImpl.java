@@ -2,6 +2,10 @@ package org.jvnet.hudson.backend.ircbot;
 
 import com.cloudbees.kenai.KRole;
 import com.cloudbees.kenai.Kenai;
+import com.gargoylesoftware.htmlunit.Page;
+import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.html.HtmlForm;
+import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import com.meterware.httpunit.ClientProperties;
 import com.meterware.httpunit.PostMethodWebRequest;
 import com.meterware.httpunit.WebConversation;
@@ -302,18 +306,26 @@ public class IrcBotImpl extends PircBot {
      * JIRA doesn't have the SOAP API to create a component, so we need to do this via a HTTP POST and page scraping.
      */
     private void createComponent(String subcomponent, String owner) throws ProcessingException, IOException, SAXException, DocumentException {
-        ConnectionInfo con = new ConnectionInfo();
-        WebConversation wc = new WebConversation();
-        wc.setExceptionsThrownOnErrorStatus(true);
-        
-        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.jenkins-ci.org/secure/project/AddComponent.jspa");
-        req.setParameter("pid", getProjectId());
-        req.setParameter("os_username",con.userName);
-        req.setParameter("os_password",con.password);
-        req.setParameter("name",subcomponent);
-        req.setParameter("description",subcomponent+" plugin");
-        req.setParameter("componentLead",owner);
-        checkError(wc.getResponse(req));
+        // for some reason, HttpUnit doesn't work for this (it doesn't remember my session cookie)
+        // so using HtmlUnit.
+        // TODO: convert the rest of the bot to use HtmlUnit
+        // TODO: improve error checks
+        ConnectionInfo con = new ConnectionInfo(new File(new File(System.getProperty("user.home")),".jenkins-ci.org"));
+
+        WebClient wc = new WebClient();
+        wc.setJavaScriptEnabled(false);
+        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/login.jsp");
+        HtmlForm f = (HtmlForm)p.getElementById("login-form");
+        f.getInputByName("os_username").setValueAttribute(con.userName);
+        f.getInputByName("os_password").setValueAttribute(con.password);
+        System.out.println(f.submit().getWebResponse().getContentAsString());
+
+        p = wc.getPage("http://issues.jenkins-ci.org/secure/project/AddComponent!default.jspa?pid=" + getProjectId());
+        f = p.getFormByName("jiraform");
+        f.getInputByName("name").setValueAttribute(subcomponent);
+        f.getTextAreaByName("description").setText(subcomponent+" plugin");
+        f.getInputByName("componentLead").setValueAttribute(owner);
+        f.submit();
     }
 
     private void createGitHubRepository(String channel, String name, String collaborator) {
