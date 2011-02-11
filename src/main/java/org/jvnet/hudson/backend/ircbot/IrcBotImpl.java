@@ -1,28 +1,18 @@
 package org.jvnet.hudson.backend.ircbot;
 
-import com.cloudbees.kenai.KRole;
-import com.cloudbees.kenai.Kenai;
-import com.gargoylesoftware.htmlunit.Page;
 import com.gargoylesoftware.htmlunit.WebClient;
+import com.gargoylesoftware.htmlunit.html.HtmlElement;
 import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
-import com.meterware.httpunit.ClientProperties;
-import com.meterware.httpunit.PostMethodWebRequest;
-import com.meterware.httpunit.WebConversation;
-import com.meterware.httpunit.WebForm;
-import com.meterware.httpunit.WebResponse;
 import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.io.IOUtils;
-import org.cyberneko.html.parsers.SAXParser;
-import org.dom4j.Document;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.OutputFormat;
-import org.dom4j.io.SAXReader;
 import org.dom4j.io.XMLWriter;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
@@ -32,8 +22,6 @@ import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
-import org.kohsuke.jnt.ConnectionInfo;
-import org.kohsuke.jnt.ProcessingException;
 import org.xml.sax.SAXException;
 
 import javax.net.ssl.HttpsURLConnection;
@@ -45,20 +33,17 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringReader;
 import java.io.StringWriter;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.util.regex.Pattern.CASE_INSENSITIVE;
+import static java.util.regex.Pattern.*;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -108,13 +93,13 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel, m.group(1),null);
+            addGitHubCommitter(channel, sender, m.group(1),null);
             return;
         }
 
         m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel, m.group(1), m.group(4));
+            addGitHubCommitter(channel, sender, m.group(1), m.group(4));
             return;
         }
 
@@ -126,13 +111,13 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel, m.group(1),null);
+            addGitHubCommitter(channel,sender,m.group(1),null);
             return;
         }
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            grantCommitAccess(channel, sender, m.group(1));
+            addGitHubCommitter(channel,sender,m.group(1),null);
             return;
         }
 
@@ -187,9 +172,9 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private String getSummary(String number) throws ServiceException, RemoteException, ProcessingException, MalformedURLException {
+    private String getSummary(String number) throws ServiceException, IOException {
         JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
-        ConnectionInfo con = new ConnectionInfo(new File(new File(System.getProperty("user.home")),".jenkins-ci.org"));
+        ConnectionInfo con = new ConnectionInfo();
         String token = svc.login(con.userName, con.password);
         RemoteIssue issue = svc.getIssue(token, "JENKINS-" + number);
         return String.format("%s:%s (%s) %s",
@@ -252,28 +237,6 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    /**
-     * Grant commit access to a new user.
-     */
-    private void grantCommitAccess(String channel, String sender, String id) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
-            return;
-        }
-
-        sendMessage(channel,"Making "+id+" a committer");
-        try {
-            Kenai kenai = Kenai.connectWithStoredCredential("https://java.net/", ".java.net2");
-            kenai.getProject("jenkins").addRole(kenai.getUser(id), KRole.DEVELOPER);
-            // doesn't look like I have access anymore, and this appears to have failed to migrate the role, anyway.
-//            kenai.getProject("maven2-repository").addRole(kenai.getUser(id), KRole.DEVELOPER);
-            sendMessage(channel,id +" is now a committer");
-        } catch (IOException e) {
-            sendMessage(channel,"Failed to make "+id+" a committer: "+e.getMessage().replace('\n',' '));
-            e.printStackTrace();
-        }
-    }
-
     private void insufficientPermissionError(String channel) {
         sendMessage(channel,"Only people with + or @ can run this command.");
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
@@ -305,27 +268,15 @@ public class IrcBotImpl extends PircBot {
     /**
      * JIRA doesn't have the SOAP API to create a component, so we need to do this via a HTTP POST and page scraping.
      */
-    private void createComponent(String subcomponent, String owner) throws ProcessingException, IOException, SAXException, DocumentException {
-        // for some reason, HttpUnit doesn't work for this (it doesn't remember my session cookie)
-        // so using HtmlUnit.
-        // TODO: convert the rest of the bot to use HtmlUnit
-        // TODO: improve error checks
-        ConnectionInfo con = new ConnectionInfo(new File(new File(System.getProperty("user.home")),".jenkins-ci.org"));
+    private void createComponent(String subcomponent, String owner) throws IOException, SAXException, DocumentException {
+        WebClient wc = createAuthenticatedSession();
 
-        WebClient wc = new WebClient();
-        wc.setJavaScriptEnabled(false);
-        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/login.jsp");
-        HtmlForm f = (HtmlForm)p.getElementById("login-form");
-        f.getInputByName("os_username").setValueAttribute(con.userName);
-        f.getInputByName("os_password").setValueAttribute(con.password);
-        System.out.println(f.submit().getWebResponse().getContentAsString());
-
-        p = wc.getPage("http://issues.jenkins-ci.org/secure/project/AddComponent!default.jspa?pid=" + getProjectId());
-        f = p.getFormByName("jiraform");
+        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/secure/project/AddComponent!default.jspa?pid=" + getProjectId());
+        HtmlForm f = p.getFormByName("jiraform");
         f.getInputByName("name").setValueAttribute(subcomponent);
-        f.getTextAreaByName("description").setText(subcomponent+" plugin");
+        f.getTextAreaByName("description").setText(subcomponent + " plugin");
         f.getInputByName("componentLead").setValueAttribute(owner);
-        f.submit();
+        checkError((HtmlPage) f.submit());
     }
 
     private void createGitHubRepository(String channel, String name, String collaborator) {
@@ -351,7 +302,11 @@ public class IrcBotImpl extends PircBot {
      * @param justForThisRepo
      *      Null to add to "Everyone", otherwise add him to a team specific repository.
      */
-    private void addGitHubCommitter(String channel, String collaborator, String justForThisRepo) {
+    private void addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
@@ -423,13 +378,12 @@ public class IrcBotImpl extends PircBot {
     /**
      * Check if this submission resulted in an error, and if so, report an exception.
      */
-    private WebResponse checkError(WebResponse rsp) throws DocumentException, IOException, ProcessingException {
-        System.out.println(rsp.getText());
+    private  HtmlPage checkError(HtmlPage rsp) throws DocumentException, IOException {
+        System.out.println(rsp.getWebResponse().getContentAsString());
 
-        Document tree = asDom(rsp);
-        Element e = (Element) tree.selectSingleNode("//*[@class='errMsg']");
+        HtmlElement e = (HtmlElement) rsp.selectSingleNode("//*[@class='errMsg']");
         if (e==null)
-            e = (Element) tree.selectSingleNode("//*[@class='errorArea']");
+            e = (HtmlElement) rsp.selectSingleNode("//*[@class='errorArea']");
         if (e!=null) {
             StringWriter w = new StringWriter();
             new XMLWriter(w, OutputFormat.createCompactFormat()) {
@@ -439,13 +393,9 @@ public class IrcBotImpl extends PircBot {
                     writeElementContent(element);
                 }
             }.write(e);
-            throw new ProcessingException(w.toString());
+            throw new IOException(w.toString());
         }
         return rsp;
-    }
-
-    private Document asDom(WebResponse rsp) throws DocumentException, IOException {
-        return new SAXReader(new SAXParser()).read(new StringReader(rsp.getText()));
     }
 
     private String getProjectId() {
@@ -461,32 +411,33 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void setDefaultAssignee(String component, DefaultAssignee assignee) throws Exception {
-        WebConversation wc = createAuthenticatedSession();
+        WebClient wc = createAuthenticatedSession();
 
-        WebResponse rsp = wc.getResponse("http://issues.jenkins-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId="+getProjectId());
-        Document dom = asDom(rsp);
-        Element row = (Element)dom.selectSingleNode("//TABLE[@class='grid']/TR[TD[1]='"+component+"']");
+        HtmlPage rsp = wc.getPage("http://issues.jenkins-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId=" + getProjectId());
+        HtmlElement row = (HtmlElement) rsp.selectSingleNode("//TABLE[@class='grid']/TR[TD[1]='" + component + "']");
+
         // figure out the name field
-        Element r = (Element)row.selectSingleNode(".//INPUT[@type='radio']");
-        String name = r.attributeValue("name");
+        HtmlElement r = (HtmlElement)row.selectSingleNode(".//INPUT[@type='radio']");
+        String name = r.getAttribute("name");
 
-        WebForm f = rsp.getFormWithName("jiraform");
-        f.setParameter(name,String.valueOf(assignee.ordinal()));
-        checkError(f.submit());
+        HtmlForm f = rsp.getFormByName("jiraform");
+        f.getInputByName(name).setValueAttribute(String.valueOf(assignee.ordinal()));
+        checkError((HtmlPage)f.submit());
     }
 
     /**
      * Creates a conversation that's already logged in as the current user.
      */
-    private WebConversation createAuthenticatedSession() throws ProcessingException, DocumentException, IOException, SAXException {
+    private WebClient createAuthenticatedSession() throws DocumentException, IOException, SAXException {
         ConnectionInfo con = new ConnectionInfo();
-        WebConversation wc = new WebConversation();
-        wc.setExceptionsThrownOnErrorStatus(true);
 
-        PostMethodWebRequest req = new PostMethodWebRequest("http://issues.jenkins-ci.org/login.jsp");
-        req.setParameter("os_username",con.userName);
-        req.setParameter("os_password",con.password);
-        checkError(wc.getResponse(req));
+        WebClient wc = new WebClient();
+        wc.setJavaScriptEnabled(false);
+        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/login.jsp");
+        HtmlForm f = (HtmlForm)p.getElementById("login-form");
+        f.getInputByName("os_username").setValueAttribute(con.userName);
+        f.getInputByName("os_password").setValueAttribute(con.password);
+        checkError((HtmlPage) f.submit());
 
         return wc;
     }
@@ -499,11 +450,6 @@ public class IrcBotImpl extends PircBot {
     }
 
     static {
-        // HttpUnit can't handle gzip-encoded content with Content-Length==-1,
-        // so disable gzip support
-        ClientProperties.getDefaultProperties().setAcceptGzip(false);
-
-
         /*
             I started seeing the SSL related problem. Given that there's no change in project_tools.html
             that include this Google Analytics, I'm not really sure why this is happening.
