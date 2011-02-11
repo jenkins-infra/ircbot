@@ -39,6 +39,7 @@ import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -414,15 +415,23 @@ public class IrcBotImpl extends PircBot {
         WebClient wc = createAuthenticatedSession();
 
         HtmlPage rsp = wc.getPage("http://issues.jenkins-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId=" + getProjectId());
-        HtmlElement row = (HtmlElement) rsp.selectSingleNode("//TABLE[@class='grid']/TR[TD[1]='" + component + "']");
+        List<HtmlElement> rows = rsp.selectNodes("//TABLE[@class='grid']//TR");   // [TD[1]='COMPONENTNAME'] somehow doesn't work any more. how come?
 
-        // figure out the name field
-        HtmlElement r = (HtmlElement)row.selectSingleNode(".//INPUT[@type='radio']");
-        String name = r.getAttribute("name");
+        for (HtmlElement row : rows) {
+            String caption = ((HtmlElement)row.selectSingleNode("TD[1]")).getTextContent();
+            if (caption.equals(component)) {
+                // figure out the name field
+                HtmlElement r = (HtmlElement)row.selectSingleNode(".//INPUT[@type='radio']");
+                String name = r.getAttribute("name");
 
-        HtmlForm f = rsp.getFormByName("jiraform");
-        f.getInputByName(name).setValueAttribute(String.valueOf(assignee.ordinal()));
-        checkError((HtmlPage)f.submit());
+                HtmlForm f = rsp.getFormByName("jiraform");
+                f.getInputByName(name).setValueAttribute(String.valueOf(assignee.ordinal()));
+                checkError((HtmlPage)f.submit());
+                return;
+            }
+        }
+
+        throw new IOException("Unable to find component "+component+" in the issue tracker");
     }
 
     /**
@@ -447,6 +456,8 @@ public class IrcBotImpl extends PircBot {
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
         bot.joinChannel("#jenkins");
+//
+//        bot.setDefaultAssignee("kktest4",DefaultAssignee.COMPONENT_LEAD);
     }
 
     static {
