@@ -128,6 +128,18 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            grantAutoVoice(channel,sender,m.group(1));
+            return;
+        }
+
+        m = Pattern.compile("(?:rem|remove|ungrant|del|delete) (\\S+) voice",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            removeAutoVoice(channel,sender,m.group(1));
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -264,6 +276,28 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private void grantAutoVoice(String channel, String sender, String target) {
+        if (!isSenderAuthorized(channel,sender)) {
+          insufficientPermissionError(channel);
+          return;
+        }
+
+        sendMessage("CHANSERV", "flags " + channel + " " + target + " +V");
+        sendMessage("CHANSERV", "voice " + channel + " " + target);
+        sendMessage(channel, "Voice priviledge (+V) added for " + target);
+    }
+
+    private void removeAutoVoice(String channel, String sender, String target) {
+      if (!isSenderAuthorized(channel,sender)) {
+        insufficientPermissionError(channel);
+        return;
+      }
+
+      sendMessage("CHANSERV", "flags " + channel + " " + target + " -V");
+      sendMessage("CHANSERV", "devoice " + channel + " " + target);
+      sendMessage(channel, "Voice priviledge (-V) removed for " + target);
     }
 
     /**
