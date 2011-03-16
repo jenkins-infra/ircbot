@@ -367,6 +367,8 @@ public class IrcBotImpl extends PircBot {
      */
     private void forkGitHub(String channel, String owner, String repo, String newName) {
         try {
+            sendMessage(channel, "Forking "+repo);
+
             GitHub github = GitHub.connect();
             GHUser user = github.getUser(owner);
             if (user==null) {
