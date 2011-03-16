@@ -543,5 +543,5 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private static final String POST_COMMIT_HOOK_EMAIL = "jenkinsci-commits@googlegroups.com";
+    static final String POST_COMMIT_HOOK_EMAIL = "jenkinsci-commits@googlegroups.com";
 }
