@@ -319,6 +319,7 @@ public class IrcBotImpl extends PircBot {
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization("jenkinsci");
             GHRepository r = org.createRepository(name,"","","Everyone",true);
+            r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             if (collaborator!=null)
@@ -389,7 +390,10 @@ public class IrcBotImpl extends PircBot {
             // the Everyone group gets access to this new repository, too.
             GHTeam everyone = org.getTeams().get("Everyone");
             everyone.add(r);
-            sendMessage(channel,"Created https://github.com/jenkinsci/"+(newName!=null?newName:repo));
+
+            r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
+
+            sendMessage(channel, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
         } catch (IOException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
@@ -538,4 +542,6 @@ public class IrcBotImpl extends PircBot {
             throw new Error(e);
         }
     }
+
+    private static final String POST_COMMIT_HOOK_EMAIL = "jenkinsci-commits@googlegroups.com";
 }
