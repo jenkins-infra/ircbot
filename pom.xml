@@ -3,14 +3,14 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <modelVersion>4.0.0</modelVersion>
   <parent>
-    <artifactId>backend</artifactId>
-    <groupId>org.jvnet.hudson</groupId>
-    <version>1.7</version>
+    <groupId>org.jenkins-ci</groupId>
+    <artifactId>jenkins</artifactId>
+    <version>1.17</version>
   </parent>
-  <groupId>org.jvnet.hudson.backend</groupId>
+
   <artifactId>ircbot</artifactId>
   <version>1.0-SNAPSHOT</version>
-  <name>IRCBot for Hudson</name>
+  <name>IRCBot for Jenkins</name>
 
   <build>
     <plugins>
@@ -52,7 +52,7 @@
     <dependency>
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
-      <version>1.6</version>
+      <version>1.7-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>dom4j</groupId>
@@ -60,4 +60,17 @@
       <version>1.6.1</version>
     </dependency>
   </dependencies>
+
+  <repositories>
+    <repository>
+      <id>m.g.o-public</id>
+      <url>http://maven.glassfish.org/content/groups/public/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+  </repositories>
 </project>
