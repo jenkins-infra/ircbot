@@ -84,6 +84,8 @@ public class IrcBotImpl extends PircBot {
         }
 
         String payload = message.substring(prefix.length(), message.length()).trim();
+        // replace duplicate whitespace with a single space
+        payload = payload.replaceAll("\\s+", " ");
         Matcher m;
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
