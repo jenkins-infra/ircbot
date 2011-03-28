@@ -94,27 +94,15 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er)",CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            addGitHubCommitter(channel, sender, m.group(1),null);
-            return;
-        }
-
-        m = Pattern.compile("add (\\S+) as (a )?github (collaborator|committ?er) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            addGitHubCommitter(channel, sender, m.group(1), m.group(4));
-            return;
-        }
-
         m = Pattern.compile("fork (\\S+)/(\\S+) on github(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             forkGitHub(channel, m.group(1),m.group(2),m.group(3));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access) (on|in) github",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),null);
+            addGitHubCommitter(channel,sender,m.group(1),m.group(2));
             return;
         }
 
