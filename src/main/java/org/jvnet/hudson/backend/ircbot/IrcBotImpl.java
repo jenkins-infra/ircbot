@@ -118,13 +118,13 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantAutoVoice(channel,sender,m.group(1));
             return;
         }
 
-        m = Pattern.compile("(?:rem|remove|ungrant|del|delete) (\\S+) voice",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:rem|remove|ungrant|del|delete) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             removeAutoVoice(channel,sender,m.group(1));
             return;
