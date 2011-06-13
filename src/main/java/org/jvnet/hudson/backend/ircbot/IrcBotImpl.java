@@ -9,6 +9,7 @@ import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
 import org.apache.axis.collections.LRUMap;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
@@ -486,6 +487,10 @@ public class IrcBotImpl extends PircBot {
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
         bot.joinChannel("#jenkins");
+        if (args.length>0) {
+            System.out.println("Authenticating with NickServ");
+            bot.sendMessage("nickserv","identify "+args[0]);
+        }
 //
 //        bot.setDefaultAssignee("kktest4",DefaultAssignee.COMPONENT_LEAD);
     }
