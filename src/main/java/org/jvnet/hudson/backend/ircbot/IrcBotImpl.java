@@ -95,7 +95,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("fork (\\S+)/(\\S+) on github(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("fork (\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             forkGitHub(channel, m.group(1),m.group(2),m.group(3));
             return;
