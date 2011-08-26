@@ -101,13 +101,13 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addGitHubCommitter(channel,sender,m.group(1),m.group(2));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+) (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addGitHubCommitter(channel,sender,m.group(1),null);
             return;
