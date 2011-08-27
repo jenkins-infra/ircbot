@@ -42,6 +42,7 @@ import java.security.cert.X509Certificate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -373,9 +374,23 @@ public class IrcBotImpl extends PircBot {
             }
 
             GHOrganization org = github.getOrganization("jenkinsci");
-            GHRepository r = orig.forkTo(org);
+            GHRepository r = null;
+            try {
+                r = orig.forkTo(org);
+            } catch (IOException e) {
+                // we started seeing 500 errors, presumably due to time out.
+                // give it a bit of time, and see if the repository is there
+                System.out.println("GitHub reported that it failed to fork "+owner+"/"+repo+". But we aren't trusting");
+                Thread.sleep(3000);
+                r = org.getRepository(repo);
+                if (r==null)
+                    throw e;
+            }
             if (newName!=null)
                 r.renameTo(newName);
+
+            // GitHub adds a lot of teams to this repo by default, which we don't want
+            Set<GHTeam> legacyTeams = r.getTeams();
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             t.add(user);    // the user immediately joins this team
@@ -387,6 +402,14 @@ public class IrcBotImpl extends PircBot {
             r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
 
             sendMessage(channel, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
+
+            // remove all the existing teams
+            for (GHTeam team : legacyTeams)
+                team.remove(r);
+
+        } catch (InterruptedException e) {
+            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
+            e.printStackTrace();
         } catch (IOException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
@@ -491,6 +514,7 @@ public class IrcBotImpl extends PircBot {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
         }
+        bot.forkGitHub("#jenkinsci","kohsuke","rubywm",null);
 //
 //        bot.setDefaultAssignee("kktest4",DefaultAssignee.COMPONENT_LEAD);
     }
