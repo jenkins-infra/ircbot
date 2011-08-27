@@ -514,7 +514,6 @@ public class IrcBotImpl extends PircBot {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
         }
-        bot.forkGitHub("#jenkinsci","kohsuke","rubywm",null);
 //
 //        bot.setDefaultAssignee("kktest4",DefaultAssignee.COMPONENT_LEAD);
     }
