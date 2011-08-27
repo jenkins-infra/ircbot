@@ -312,6 +312,7 @@ public class IrcBotImpl extends PircBot {
             GHOrganization org = github.getOrganization("jenkinsci");
             GHRepository r = org.createRepository(name,"","","Everyone",true);
             r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
+            r.enableIssueTracker(false);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             if (collaborator!=null)
@@ -400,6 +401,7 @@ public class IrcBotImpl extends PircBot {
             everyone.add(r);
 
             r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
+            r.enableIssueTracker(false);
 
             sendMessage(channel, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
 
