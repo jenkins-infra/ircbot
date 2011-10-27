@@ -1,20 +1,20 @@
 package org.jvnet.hudson.backend.ircbot;
 
-import com.gargoylesoftware.htmlunit.WebClient;
 import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlForm;
 import com.gargoylesoftware.htmlunit.html.HtmlPage;
 import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
 import org.apache.axis.collections.LRUMap;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.io.OutputFormat;
 import org.dom4j.io.XMLWriter;
+import org.jenkinsci.jira_scraper.ConnectionInfo;
+import org.jenkinsci.jira_scraper.JiraScraper;
+import org.jenkinsci.jira_scraper.JiraScraper.DefaultAssignee;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
 import org.kohsuke.github.GHOrganization;
@@ -23,7 +23,6 @@ import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
-import org.xml.sax.SAXException;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -40,7 +39,6 @@ import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -261,8 +259,9 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
 
         try {
-            createComponent(subcomponent, owner);
-            setDefaultAssignee(subcomponent, DefaultAssignee.COMPONENT_LEAD);
+            JiraScraper js = new JiraScraper();
+            js.createComponent(getProjectId(), subcomponent, owner);
+            js.setDefaultAssignee(getProjectId(), subcomponent, DefaultAssignee.COMPONENT_LEAD);
             sendMessage(channel,"New component created");
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
@@ -290,20 +289,6 @@ public class IrcBotImpl extends PircBot {
       sendMessage("CHANSERV", "flags " + channel + " " + target + " -V");
       sendMessage("CHANSERV", "devoice " + channel + " " + target);
       sendMessage(channel, "Voice priviledge (-V) removed for " + target);
-    }
-
-    /**
-     * JIRA doesn't have the SOAP API to create a component, so we need to do this via a HTTP POST and page scraping.
-     */
-    private void createComponent(String subcomponent, String owner) throws IOException, SAXException, DocumentException {
-        WebClient wc = createAuthenticatedSession();
-
-        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/secure/project/AddComponent!default.jspa?pid=" + getProjectId());
-        HtmlForm f = p.getFormByName("jiraform");
-        f.getInputByName("name").setValueAttribute(subcomponent);
-        f.getTextAreaByName("description").setText(subcomponent + " plugin");
-        f.getInputByName("componentLead").setValueAttribute(owner);
-        checkError((HtmlPage) f.submit());
     }
 
     private void createGitHubRepository(String channel, String name, String collaborator) {
@@ -465,53 +450,6 @@ public class IrcBotImpl extends PircBot {
     private String getProjectId() {
         // TODO: use JIRA SOAP API to get this ID.
         return "10172";
-    }
-
-    enum DefaultAssignee {
-        PROJECT_DEFAULT,
-        COMPONENT_LEAD,
-        PROJECT_LEAD,
-        UNASSIGNED
-    }
-
-    private void setDefaultAssignee(String component, DefaultAssignee assignee) throws Exception {
-        WebClient wc = createAuthenticatedSession();
-
-        HtmlPage rsp = wc.getPage("http://issues.jenkins-ci.org/secure/project/SelectComponentAssignees!default.jspa?projectId=" + getProjectId());
-        List<HtmlElement> rows = rsp.selectNodes("//TABLE[@class='grid']//TR");   // [TD[1]='COMPONENTNAME'] somehow doesn't work any more. how come?
-
-        for (HtmlElement row : rows) {
-            String caption = ((HtmlElement)row.selectSingleNode("TD[1]")).getTextContent();
-            if (caption.equals(component)) {
-                // figure out the name field
-                HtmlElement r = (HtmlElement)row.selectSingleNode(".//INPUT[@type='radio']");
-                String name = r.getAttribute("name");
-
-                HtmlForm f = rsp.getFormByName("jiraform");
-                f.getInputByName(name).setValueAttribute(String.valueOf(assignee.ordinal()));
-                checkError((HtmlPage)f.submit());
-                return;
-            }
-        }
-
-        throw new IOException("Unable to find component "+component+" in the issue tracker");
-    }
-
-    /**
-     * Creates a conversation that's already logged in as the current user.
-     */
-    private WebClient createAuthenticatedSession() throws DocumentException, IOException, SAXException {
-        ConnectionInfo con = new ConnectionInfo();
-
-        WebClient wc = new WebClient();
-        wc.setJavaScriptEnabled(false);
-        HtmlPage p = wc.getPage("http://issues.jenkins-ci.org/login.jsp");
-        HtmlForm f = (HtmlForm)p.getElementById("login-form");
-        f.getInputByName("os_username").setValueAttribute(con.userName);
-        f.getInputByName("os_password").setValueAttribute(con.password);
-        checkError((HtmlPage) f.submit());
-
-        return wc;
     }
 
     public static void main(String[] args) throws Exception {

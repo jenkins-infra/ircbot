@@ -45,6 +45,11 @@
       <version>1.0</version>
     </dependency>
     <dependency>
+      <groupId>org.jenkins-ci</groupId>
+      <artifactId>jira-scraper</artifactId>
+      <version>1.1</version>
+    </dependency>
+    <dependency>
       <groupId>pircbot</groupId>
       <artifactId>pircbot</artifactId>
       <version>1.4.2</version>
@@ -58,11 +63,6 @@
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
       <version>1.14</version>
-    </dependency>
-    <dependency>
-      <groupId>dom4j</groupId>
-      <artifactId>dom4j</artifactId>
-      <version>1.6.1</version>
     </dependency>
   </dependencies>
 
