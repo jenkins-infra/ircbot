@@ -17,21 +17,29 @@ public class FixUpPostCommitHook {
         GitHub github = GitHub.connect();
         GHOrganization org = github.getOrganization("jenkinsci");
 
-        for (GHRepository r : org.getRepositories().values()) {
-            r.setEmailServiceHook(IrcBotImpl.POST_COMMIT_HOOK_EMAIL);
+        GHTeam e = org.getTeams().get("Everyone");
 
+        for (GHRepository r : org.getRepositories().values()) {
             if (r.getName().endsWith("-plugin")) {
                 System.out.println("Cleaning up "+r.getName());
-                r.enableWiki(false);
-                Set<GHTeam> teams = r.getTeams();
-                for (GHTeam t : teams) {
-                    if (t.getName().equals("Everyone")) continue;   // leave it in
-                    if (t.getName().equals("bulk created plugin repository"))       continue;   // likewise. marker.
-                    if (t.getName().startsWith(r.getName()+" "))    continue;   // repository local team
-                    System.out.println("Removing "+t.getName()+"\tfrom "+r.getName());
-                    t.remove(r);
-                }
+                e.add(r);
             }
+
+
+//            r.setEmailServiceHook(IrcBotImpl.POST_COMMIT_HOOK_EMAIL);
+//
+//            if (r.getName().endsWith("-plugin")) {
+//                System.out.println("Cleaning up "+r.getName());
+//                r.enableWiki(false);
+//                Set<GHTeam> teams = r.getTeams();
+//                for (GHTeam t : teams) {
+//                    if (t.getName().equals("Everyone")) continue;   // leave it in
+//                    if (t.getName().equals("bulk created plugin repository"))       continue;   // likewise. marker.
+//                    if (t.getName().startsWith(r.getName()+" "))    continue;   // repository local team
+//                    System.out.println("Removing "+t.getName()+"\tfrom "+r.getName());
+//                    t.remove(r);
+//                }
+//            }
         }
     }
 }
