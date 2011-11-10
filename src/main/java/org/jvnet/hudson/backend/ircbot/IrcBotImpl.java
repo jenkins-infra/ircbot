@@ -417,6 +417,10 @@ public class IrcBotImpl extends PircBot {
     }
 
     public static void main(String[] args) throws Exception {
+        JiraScraper js = new JiraScraper();
+        js.createComponent("JENKINS", "managed-scripts", "imod", AssigneeType.COMPONENT_LEAD);
+        System.exit(0);
+
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
@@ -425,8 +429,6 @@ public class IrcBotImpl extends PircBot {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
         }
-//
-//        bot.setDefaultAssignee("kktest4",DefaultAssignee.COMPONENT_LEAD);
     }
 
     static {

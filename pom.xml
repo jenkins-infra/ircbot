@@ -15,6 +15,18 @@
   <build>
     <plugins>
       <plugin>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>org.jvnet.hudson.backend.ircbot.IrcBotImpl</mainClass>
+              <classpathPrefix>lib</classpathPrefix>
+              <addClasspath>true</addClasspath>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
           <execution>
@@ -23,14 +35,7 @@
             </goals>
             <phase>package</phase>
             <configuration>
-              <descriptorRefs>
-                <descriptorRef>jar-with-dependencies</descriptorRef>
-              </descriptorRefs>
-              <archive>
-                <manifest>
-                  <mainClass>org.jvnet.hudson.backend.ircbot.IrcBotImpl</mainClass>
-                </manifest>
-              </archive>
+              <descriptor>src/main/assembly.xml</descriptor>
             </configuration>
           </execution>
         </executions>
