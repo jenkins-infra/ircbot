@@ -1,11 +1,9 @@
-package org.jvnet.hudson.backend.ircbot;
+package org.jenkinsci.backend.ircbot;
 
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GitHub;
-
-import java.util.Set;
 
 /**
  * One-off program to bulk update the plugin repository for fix up

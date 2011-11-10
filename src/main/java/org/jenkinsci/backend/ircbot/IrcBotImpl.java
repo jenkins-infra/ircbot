@@ -1,4 +1,4 @@
-package org.jvnet.hudson.backend.ircbot;
+package org.jenkinsci.backend.ircbot;
 
 import com.atlassian.jira.rest.client.domain.AssigneeType;
 import hudson.plugins.jira.soap.JiraSoapService;
@@ -417,10 +417,6 @@ public class IrcBotImpl extends PircBot {
     }
 
     public static void main(String[] args) throws Exception {
-        JiraScraper js = new JiraScraper();
-        js.createComponent("JENKINS", "managed-scripts", "imod", AssigneeType.COMPONENT_LEAD);
-        System.exit(0);
-
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);

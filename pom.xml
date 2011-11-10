@@ -19,7 +19,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>org.jvnet.hudson.backend.ircbot.IrcBotImpl</mainClass>
+              <mainClass>org.jenkinsci.backend.ircbot.IrcBotImpl</mainClass>
               <classpathPrefix>lib</classpathPrefix>
               <addClasspath>true</addClasspath>
             </manifest>
