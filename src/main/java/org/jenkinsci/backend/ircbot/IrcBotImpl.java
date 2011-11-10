@@ -66,6 +66,8 @@ public class IrcBotImpl extends PircBot {
         if (!channel.equals("#jenkins"))     return; // not in this channel
         if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
 
+        message = message.trim();
+        
         String prefix = getNick() + ":";
         if (!message.startsWith(prefix)) {
             // not send to me
