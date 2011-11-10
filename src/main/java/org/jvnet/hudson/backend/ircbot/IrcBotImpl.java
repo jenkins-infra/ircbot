@@ -1,20 +1,14 @@
 package org.jvnet.hudson.backend.ircbot;
 
-import com.gargoylesoftware.htmlunit.html.HtmlElement;
-import com.gargoylesoftware.htmlunit.html.HtmlPage;
+import com.atlassian.jira.rest.client.domain.AssigneeType;
 import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.io.IOUtils;
-import org.dom4j.DocumentException;
-import org.dom4j.Element;
-import org.dom4j.io.OutputFormat;
-import org.dom4j.io.XMLWriter;
 import org.jenkinsci.jira_scraper.ConnectionInfo;
 import org.jenkinsci.jira_scraper.JiraScraper;
-import org.jenkinsci.jira_scraper.JiraScraper.DefaultAssignee;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
 import org.kohsuke.github.GHOrganization;
@@ -33,7 +27,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
@@ -260,8 +253,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             JiraScraper js = new JiraScraper();
-            js.createComponent(getProjectId(), subcomponent, owner);
-            js.setDefaultAssignee(getProjectId(), subcomponent, DefaultAssignee.COMPONENT_LEAD);
+            js.createComponent("JENKINS", subcomponent, owner, AssigneeType.COMPONENT_LEAD);
             sendMessage(channel,"New component created");
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
@@ -295,7 +287,7 @@ public class IrcBotImpl extends PircBot {
         try {
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization("jenkinsci");
-            GHRepository r = org.createRepository(name,"","","Everyone",true);
+            GHRepository r = org.createRepository(name, "", "", "Everyone", true);
             setupRepository(r);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
@@ -359,7 +351,7 @@ public class IrcBotImpl extends PircBot {
             }
 
             GHOrganization org = github.getOrganization("jenkinsci");
-            GHRepository r = null;
+            GHRepository r;
             try {
                 r = orig.forkTo(org);
             } catch (IOException e) {
@@ -422,34 +414,6 @@ public class IrcBotImpl extends PircBot {
             t.add(r);
         }
         return t;
-    }
-
-    /**
-     * Check if this submission resulted in an error, and if so, report an exception.
-     */
-    private  HtmlPage checkError(HtmlPage rsp) throws DocumentException, IOException {
-        System.out.println(rsp.getWebResponse().getContentAsString());
-
-        HtmlElement e = (HtmlElement) rsp.selectSingleNode("//*[@class='errMsg']");
-        if (e==null)
-            e = (HtmlElement) rsp.selectSingleNode("//*[@class='errorArea']");
-        if (e!=null) {
-            StringWriter w = new StringWriter();
-            new XMLWriter(w, OutputFormat.createCompactFormat()) {
-                // just print text
-                @Override
-                protected void writeElement(Element element) throws IOException {
-                    writeElementContent(element);
-                }
-            }.write(e);
-            throw new IOException(w.toString());
-        }
-        return rsp;
-    }
-
-    private String getProjectId() {
-        // TODO: use JIRA SOAP API to get this ID.
-        return "10172";
     }
 
     public static void main(String[] args) throws Exception {
