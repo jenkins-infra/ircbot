@@ -11,6 +11,7 @@ import org.jenkinsci.jira_scraper.ConnectionInfo;
 import org.jenkinsci.jira_scraper.JiraScraper;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
+import org.kohsuke.github.GHEvent;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHRepository;
@@ -31,8 +32,10 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -45,6 +48,23 @@ import static java.util.regex.Pattern.*;
  * @author Kohsuke Kawaguchi
  */
 public class IrcBotImpl extends PircBot {
+    protected static final String              IRC_HOOK_NAME = "irc";
+
+    protected static final Map<String, String> IRC_HOOK_CONFIG;
+
+    static {
+        final Map<String, String> ircHookConfig = new TreeMap<String, String>();
+
+        ircHookConfig.put("server", "irc.freenode.net");
+        ircHookConfig.put("port", "6667");
+        ircHookConfig.put("nick", "github-jenkins");
+        ircHookConfig.put("password", "");
+        ircHookConfig.put("room", "#jenkins-commits");
+        ircHookConfig.put("long_url", "1");
+
+        IRC_HOOK_CONFIG = Collections.unmodifiableMap(ircHookConfig);
+    }
+
     /**
      * Records commands that we didn't understand.
      */
@@ -403,6 +423,9 @@ public class IrcBotImpl extends PircBot {
         r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
+        r.createHook(IrcBotImpl.IRC_HOOK_NAME,
+                IrcBotImpl.IRC_HOOK_CONFIG, (Collection<GHEvent>) null,
+                true);
     }
 
     /**
