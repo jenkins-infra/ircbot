@@ -133,6 +133,12 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            setDefaultAssignee(channel, sender, m.group(2), m.group(1));
+            return;
+        }
+        
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantAutoVoice(channel,sender,m.group(1));
@@ -283,6 +289,27 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
+    /**
+     * Creates an issue tracker component.
+     */
+    private void setDefaultAssignee(String channel, String sender, String subcomponent, String owner) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+        
+        sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
+        
+        try {
+            JiraScraper js = new JiraScraper();
+            js.setDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD, owner);
+            sendMessage(channel,"Default assignee set to " + owner);
+        } catch (Exception e) {
+            sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     private void grantAutoVoice(String channel, String sender, String target) {
         if (!isSenderAuthorized(channel,sender)) {
           insufficientPermissionError(channel);
