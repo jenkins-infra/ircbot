@@ -82,5 +82,14 @@
         <enabled>false</enabled>
       </snapshots>
     </repository>
+    <repository>
+      <id>atlassian</id>
+      <url>https://maven.atlassian.com/content/groups/public</url>
+    </repository>
+    <repository>
+      <id>atlassian-m1</id>
+      <url>https://maven.atlassian.com/content/groups/m1</url>
+      <layout>legacy</layout>
+    </repository>
   </repositories>
 </project>
