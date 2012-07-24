@@ -365,7 +365,8 @@ public class IrcBotImpl extends PircBot {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization("jenkinsci");
-            GHTeam t = justForThisRepo==null ? o.getTeams().get("Everyone") : o.getTeams().get(justForThisRepo+" Developers");
+            GHTeam t = justForThisRepo==null ? o.getTeams().get("Everyone") 
+                                             : getOrCreateRepoLocalTeam(o, o.getRepository(justForThisRepo));
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
                 return;
