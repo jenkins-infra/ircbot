@@ -420,7 +420,13 @@ public class IrcBotImpl extends PircBot {
             Set<GHTeam> legacyTeams = r.getTeams();
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
-            t.add(user);    // the user immediately joins this team
+            try {
+                t.add(user);    // the user immediately joins this team
+            } catch (IOException e) {
+                // if 'user' is an org, the above command would fail
+                sendMessage(channel,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
+                // fall through
+            }
 
             // the Everyone group gets access to this new repository, too.
             GHTeam everyone = org.getTeams().get("Everyone");
