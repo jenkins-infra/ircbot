@@ -1,0 +1,17 @@
+README for backend-ircbot
+=========================
+
+This package is a quick and dirty hack to provide
+the backend-ircbot project as a Debian package
+for usage on the http://jenkins-ci.org/
+infrastructure.
+
+The build process doesn't use maven-debian-helper
+but instead calls the main maven tool itself.
+
+To build the binary Debian package you might want
+to run something like:
+
+  yes | debuild -uc -us -I\.git
+
+on your Debian system.
