@@ -1,0 +1,5 @@
+backend-ircbot (1.0~SNAPSHOT+20120809-1) unstable; urgency=low
+
+  * Initial release.
+
+ -- Michael Prokop <github@michael-prokop.at>  Thu, 09 Aug 2012 01:22:06 +0200
