@@ -417,8 +417,17 @@ public class IrcBotImpl extends PircBot {
                 if (r==null)
                     throw e;
             }
-            if (newName!=null)
+            if (newName!=null) {
                 r.renameTo(newName);
+
+                r = null;
+                for (int i=0; r==null && i<5; i++) {
+                    Thread.sleep(1000);
+                    r = org.getRepository(newName);
+                }
+                if (r==null)
+                    throw new IOException(repo+" renamed to "+newName+" but not finding the new repository");
+            }
 
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
