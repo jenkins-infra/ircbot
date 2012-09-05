@@ -409,8 +409,11 @@ public class IrcBotImpl extends PircBot {
                 // we started seeing 500 errors, presumably due to time out.
                 // give it a bit of time, and see if the repository is there
                 System.out.println("GitHub reported that it failed to fork "+owner+"/"+repo+". But we aren't trusting");
-                Thread.sleep(3000);
-                r = org.getRepository(repo);
+                r = null;
+                for (int i=0; r==null && i<5; i++) {
+                    Thread.sleep(1000);
+                    r = org.getRepository(repo);
+                }
                 if (r==null)
                     throw e;
             }
