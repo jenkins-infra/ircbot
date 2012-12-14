@@ -92,7 +92,7 @@ public class IrcBotImpl extends PircBot {
         String prefix = getNick() + ":";
         if (!message.startsWith(prefix)) {
             // not send to me
-            Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]+)",CASE_INSENSITIVE).matcher(message);
+            Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
             while (m.find()) {
                 replyBugStatus(channel,m.group(1));
             }
