@@ -74,7 +74,8 @@ public class IrcBotImpl extends PircBot {
      * Map from the issue number to the time it was last mentioned.
      * Used so that we don't repeatedly mention the same issues.
      */
-    private final Map recentIssues = Collections.synchronizedMap(new LRUMap(10));
+    @SuppressWarnings("unchecked")
+    private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
 
     public IrcBotImpl(File unknownCommands) {
         setName("jenkins-admin");
@@ -179,7 +180,7 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void replyBugStatus(String channel, String number) {
-        Long time = (Long)recentIssues.get(number);
+        Long time = recentIssues.get(number);
 
         recentIssues.put(number,System.currentTimeMillis());
 
