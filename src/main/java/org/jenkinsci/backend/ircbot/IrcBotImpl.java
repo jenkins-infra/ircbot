@@ -318,7 +318,7 @@ public class IrcBotImpl extends PircBot {
 
         sendMessage("CHANSERV", "flags " + channel + " " + target + " +V");
         sendMessage("CHANSERV", "voice " + channel + " " + target);
-        sendMessage(channel, "Voice priviledge (+V) added for " + target);
+        sendMessage(channel, "Voice privilege (+V) added for " + target);
     }
 
     private void removeAutoVoice(String channel, String sender, String target) {
@@ -329,7 +329,7 @@ public class IrcBotImpl extends PircBot {
 
       sendMessage("CHANSERV", "flags " + channel + " " + target + " -V");
       sendMessage("CHANSERV", "devoice " + channel + " " + target);
-      sendMessage(channel, "Voice priviledge (-V) removed for " + target);
+      sendMessage(channel, "Voice privilege (-V) removed for " + target);
     }
 
     private void createGitHubRepository(String channel, String name, String collaborator) {
