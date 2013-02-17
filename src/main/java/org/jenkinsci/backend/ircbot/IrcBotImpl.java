@@ -366,8 +366,19 @@ public class IrcBotImpl extends PircBot {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization("jenkinsci");
-            GHTeam t = justForThisRepo==null ? o.getTeams().get("Everyone") 
-                                             : getOrCreateRepoLocalTeam(o, o.getRepository(justForThisRepo));
+            
+            final GHTeam t;
+            if (justForThisRepo != null) {
+                GHRepository forThisRepo = o.getRepository(justForThisRepo);
+                 if (forThisRepo == null) {
+                     sendMessage(channel,"Could not find repository:  "+justForThisRepo);
+                     return;
+                 }
+                 t = getOrCreateRepoLocalTeam(o, forThisRepo);
+            } else {
+                t = o.getTeams().get("Everyone");
+            }
+                
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
                 return;
@@ -375,7 +386,11 @@ public class IrcBotImpl extends PircBot {
 
             t.add(c);
             o.publicize(c);
-            sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
+            String successMsg = "Added "+collaborator+" as a GitHub committer";
+            if (justForThisRepo != null) {
+                successMsg += " for repository " + justForThisRepo;
+            }
+            sendMessage(channel,successMsg);
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
