@@ -374,7 +374,9 @@ public class IrcBotImpl extends PircBot {
             }
 
             t.add(c);
-            o.publicize(c);
+            if (!o.hasPublicMember(c)) {
+                o.publicize(c);
+            }
             sendMessage(channel,"Added "+collaborator+" as a GitHub committer");
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
