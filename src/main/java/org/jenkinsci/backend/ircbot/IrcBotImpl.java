@@ -385,9 +385,6 @@ public class IrcBotImpl extends PircBot {
             }
 
             t.add(c);
-            if (!o.hasPublicMember(c)) {
-                o.publicize(c);
-            }
             String successMsg = "Added "+collaborator+" as a GitHub committer";
             if (justForThisRepo != null) {
                 successMsg += " for repository " + justForThisRepo;
