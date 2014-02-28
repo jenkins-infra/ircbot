@@ -3,8 +3,10 @@ package org.jenkinsci.backend.ircbot;
 import com.atlassian.jira.rest.client.domain.AssigneeType;
 import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
+import hudson.plugins.jira.soap.RemoteComponent;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
+import hudson.plugins.jira.soap.RemoteVersion;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.io.IOUtils;
 import org.jenkinsci.jira_scraper.ConnectionInfo;
@@ -32,15 +34,19 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.regex.Pattern.*;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -131,6 +137,12 @@ public class IrcBotImpl extends PircBot {
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
+            return;
+        }
+        
+        m = Pattern.compile("(?:create|make|add)( released)?(?: version) (\\S+) in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)(?: with release date (\\d\\d\\d\\d-\\d\\d-\\d\\d))?",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            createVersion(channel, sender, m.group(2), m.group(3), m.group(1) != null, m.group(4));
             return;
         }
 
@@ -286,6 +298,51 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"New component created");
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Creates an issue tracker component.
+     */
+    private void createVersion(String channel, String sender, String version, String subcomponent, boolean released, String releaseDate) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        sendMessage(channel,String.format("Adding a new %sversion %s to the bug tracker, for component %s",released?" released":"",version,subcomponent));
+
+        try {
+            JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
+            ConnectionInfo con = new ConnectionInfo();
+            String token = svc.login(con.userName, con.password);
+            RemoteComponent[] components = svc.getComponents(token,"JENKINS");
+            boolean found = false;
+            for(RemoteComponent component : components) {
+                if(component.getName().equals(subcomponent)) {
+                    found = true;
+                    break;
+                }
+            }
+            
+            if(!found) {
+                sendMessage(channel, "Could not find component: "+subcomponent);
+                return;
+            } 
+            RemoteVersion newVersion = new RemoteVersion();
+            newVersion.setName(String.format("%s-%s",subcomponent,version));
+            if (StringUtils.isNotEmpty(releaseDate)) {
+                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                Calendar rDate = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                rDate.setTime(df.parse(releaseDate));
+                newVersion.setReleaseDate(rDate);
+            }
+            newVersion.setReleased(released);
+            
+            sendMessage(channel,"New version created, the new version was"+(released ? "" : " NOT")+" marked as released");
+        } catch (Exception e) {
+            sendMessage(channel,"Failed to create a new version: "+e.getMessage());
             e.printStackTrace();
         }
     }
