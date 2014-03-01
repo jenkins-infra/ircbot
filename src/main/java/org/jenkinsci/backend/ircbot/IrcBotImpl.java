@@ -35,9 +35,11 @@ import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Set;
@@ -58,10 +60,26 @@ public class IrcBotImpl extends PircBot {
 
     protected static final Map<String, String> IRC_HOOK_CONFIG;
 
-    static {
-        final Map<String, String> ircHookConfig = new TreeMap<String, String>();
+    protected static final String server;
 
-        ircHookConfig.put("server", "irc.freenode.net");
+    protected static final String nick;
+
+    protected static final String channel;
+
+    static {
+        server = StringUtils.isNotBlank(System.getProperty("irc.server")) ?
+            System.getProperty("irc.server") :
+            "irc.freenode.net";
+        nick = StringUtils.isNotBlank(System.getProperty("irc.nick")) ?
+            System.getProperty("irc.nick") :
+            "jenkins-admin";
+        channel = StringUtils.isNotBlank(System.getProperty("irc.channel")) ?
+            System.getProperty("irc.channel") :
+            "#jenkins";
+        
+	final Map<String, String> ircHookConfig = new TreeMap<String, String>();
+
+        ircHookConfig.put("server", server);
         ircHookConfig.put("port", "6667");
         ircHookConfig.put("nick", "github-jenkins");
         ircHookConfig.put("password", "");
@@ -83,14 +101,18 @@ public class IrcBotImpl extends PircBot {
     @SuppressWarnings("unchecked")
     private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
 
+    private List<String> knownComponents = Collections.synchronizedList(new ArrayList());
+
+    private List<String> knownVersions = Collections.synchronizedList(new ArrayList());
+
     public IrcBotImpl(File unknownCommands) {
-        setName("jenkins-admin");
+        setName(nick);
         this.unknownCommands = unknownCommands;
     }
 
     @Override
-    protected void onMessage(String channel, String sender, String login, String hostname, String message) {
-        if (!channel.equals("#jenkins"))     return; // not in this channel
+    protected void onMessage(String chan, String sender, String login, String hostname, String message) {
+        if (!channel.equals(chan))     return; // not in this channel
         if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
 
         message = message.trim();
@@ -112,65 +134,71 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, m.group(1), m.group(2));
+            createGitHubRepository(chan, m.group(1), m.group(2));
             return;
         }
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, m.group(1),m.group(2),m.group(3));
+            forkGitHub(chan, m.group(1),m.group(2),m.group(3));
             return;
         }
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),m.group(2));
+            addGitHubCommitter(chan,sender,m.group(1),m.group(2));
             return;
         }
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),null);
+            addGitHubCommitter(chan,sender,m.group(1),null);
             return;
         }
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createComponent(channel, sender, m.group(1), m.group(2));
+            createComponent(chan, sender, m.group(1), m.group(2));
             return;
         }
         
         m = Pattern.compile("(?:create|make|add)( released)?(?: version) (\\S+) in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)(?: with release date (\\d\\d\\d\\d-\\d\\d-\\d\\d))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createVersion(channel, sender, m.group(2), m.group(3), m.group(1) != null, m.group(4));
+            createVersion(chan, sender, m.group(2), m.group(3), m.group(1) != null, m.group(4));
+            return;
+        }
+
+        m = Pattern.compile("(?:release) version (\\S+) in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            releaseVersion(chan, sender, m.group(1), m.group(2));
             return;
         }
 
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            setDefaultAssignee(channel, sender, m.group(2), m.group(1));
+            setDefaultAssignee(chan, sender, m.group(2), m.group(1));
             return;
         }
         
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            grantAutoVoice(channel,sender,m.group(1));
+            grantAutoVoice(chan,sender,m.group(1));
             return;
         }
 
         m = Pattern.compile("(?:rem|remove|ungrant|del|delete) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            removeAutoVoice(channel,sender,m.group(1));
+            removeAutoVoice(chan,sender,m.group(1));
             return;
         }
 
         if (payload.equalsIgnoreCase("version")) {
-            version(channel);
+            version(chan);
             return;
         }
 
         if (payload.equalsIgnoreCase("help")) {
-            help(channel);
+            help(chan);
             return;
         }
 
@@ -180,7 +208,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        sendMessage(channel,"I didn't understand the command");
+        sendMessage(chan,"I didn't understand the command");
 
         try {
             PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
@@ -191,7 +219,7 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void replyBugStatus(String channel, String number) {
+    private void replyBugStatus(String chan, String number) {
         Long time = recentIssues.get(number);
 
         recentIssues.put(number,System.currentTimeMillis());
@@ -203,7 +231,7 @@ public class IrcBotImpl extends PircBot {
         }
 
         try {
-            sendMessage(channel, getSummary(number));
+            sendMessage(chan, getSummary(number));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -231,8 +259,8 @@ public class IrcBotImpl extends PircBot {
      *
      * IOW, does he have a voice of a channel operator?
      */
-    private boolean isSenderAuthorized(String channel, String sender) {
-        for (User u : getUsers(channel)) {
+    private boolean isSenderAuthorized(String chan, String sender) {
+        for (User u : getUsers(chan)) {
             System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
@@ -248,7 +276,7 @@ public class IrcBotImpl extends PircBot {
         while (!isConnected()) {
             try {
                 reconnect();
-                joinChannel("#jenkins");
+                joinChannel(channel);
             } catch (Exception e) {
                 e.printStackTrace();
                 try {
@@ -260,89 +288,163 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void help(String channel) {
-        sendMessage(channel,"See http://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot");
+    private void help(String chan) {
+        sendMessage(chan,"See http://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot");
     }
 
-    private void version(String channel) {
+    private void version(String chan) {
         try {
             String v = IOUtils.toString(getClass().getClassLoader().getResourceAsStream("version.txt"));
-            sendMessage(channel,"My version is "+v);
+            sendMessage(chan,"My version is "+v);
         } catch (IOException e) {
             e.printStackTrace();
-            sendMessage(channel,"I don't know who I am");
+            sendMessage(chan,"I don't know who I am");
         }
     }
 
-    private void insufficientPermissionError(String channel) {
-        sendMessage(channel,"Only people with + or @ can run this command.");
+    private void insufficientPermissionError(String chan) {
+        sendMessage(chan,"Only people with + or @ can run this command.");
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
-        sendRawLine("NAMES #jenkins");
-        sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
+        sendRawLine("NAMES "+channel);
+        sendMessage(chan,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
     }
 
     /**
      * Creates an issue tracker component.
      */
-    private void createComponent(String channel, String sender, String subcomponent, String owner) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
+    private void createComponent(String chan, String sender, String subcomponent, String owner) {
+        if (!isSenderAuthorized(chan,sender)) {
+            insufficientPermissionError(chan);
             return;
         }
 
-        sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
+        sendMessage(chan,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
 
         try {
             JiraScraper js = new JiraScraper();
             js.createComponent("JENKINS", subcomponent, owner, AssigneeType.COMPONENT_LEAD);
-            sendMessage(channel,"New component created");
+            sendMessage(chan,"New component created");
         } catch (Exception e) {
-            sendMessage(channel,"Failed to create a new component: "+e.getMessage());
+            sendMessage(chan,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
         }
     }
     
     /**
-     * Creates an issue tracker component.
+     * Creates a version for a component in the issue tracker.
      */
-    private void createVersion(String channel, String sender, String version, String subcomponent, boolean released, String releaseDate) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
+    private void createVersion(String chan, String sender, String version, String subcomponent, boolean released, String releaseDate) {
+        if (!isSenderAuthorized(chan,sender)) {
+            insufficientPermissionError(chan);
             return;
         }
 
-        sendMessage(channel,String.format("Adding a new %sversion %s to the bug tracker, for component %s",released?" released":"",version,subcomponent));
+        sendMessage(chan,String.format("Adding a new %sversion %s to the bug tracker, for component %s",released?" released":"",version,subcomponent));
 
         try {
             JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
             ConnectionInfo con = new ConnectionInfo();
             String token = svc.login(con.userName, con.password);
-            RemoteComponent[] components = svc.getComponents(token,"JENKINS");
+ 
             boolean found = false;
-            for(RemoteComponent component : components) {
-                if(component.getName().equals(subcomponent)) {
+            if (knownComponents.indexOf(subcomponent) >= 0) {
+                found = true;
+            } else {
+                RemoteComponent[] components = svc.getComponents(token,"JENKINS");
+                for (RemoteComponent component : components) {
+                    if (knownComponents.indexOf(component.getName()) == -1) {
+                        knownComponents.add(component.getName());
+                    }
+                    if (component.getName().equals(subcomponent)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                sendMessage(chan, "Could not find component: "+subcomponent);
+                return;
+            }
+
+            String newVersionName = String.format("%s-%s",subcomponent,version);
+            if (knownVersions.indexOf(newVersionName) != -1) {
+                sendMessage(chan,String.format("There is already a version %s for %s",version,subcomponent));
+            } else {
+                RemoteVersion newVersion = new RemoteVersion();
+                newVersion.setName(newVersionName);
+                if (StringUtils.isNotEmpty(releaseDate)) {
+                    SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
+                    Calendar rDate = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                    rDate.setTime(df.parse(releaseDate));
+                    newVersion.setReleaseDate(rDate);
+                }
+                newVersion.setReleased(released);
+                svc.addVersion(token,"JENKINS",newVersion);
+                knownVersions.add(newVersionName);
+                sendMessage(chan,"New version created, the new version was"+(released ? "" : " NOT")+" marked as released");
+            }
+        } catch (Exception e) {
+            sendMessage(chan,"Failed trying to create new version: "+ e.getMessage());
+            e.printStackTrace();
+        }
+    }
+   
+    /**
+     * Releases a version on the issue tracker (marks it as released)
+     */ 
+    private void releaseVersion(String chan, String sender, String version, String subcomponent) {
+        if (!isSenderAuthorized(chan,sender)) {
+            insufficientPermissionError(chan);
+            return;
+        }
+
+        sendMessage(chan,String.format("Releasing version %s in the bug tracker for component %s",version,subcomponent));
+
+        try {
+            JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
+            ConnectionInfo con = new ConnectionInfo();
+            String token = svc.login(con.userName, con.password);
+
+            boolean found = false;
+            if (knownComponents.indexOf(subcomponent) >= 0) {
+                found = true;
+            } else {
+                RemoteComponent[] components = svc.getComponents(token,"JENKINS");
+                for (RemoteComponent component : components) {
+                    if (knownComponents.indexOf(component.getName()) == -1) {
+                        knownComponents.add(component.getName());
+                    }
+                    if (component.getName().equals(subcomponent)) {
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!found) {
+                sendMessage(chan,"Could not find component: "+subcomponent);
+                return;
+            }
+
+            String versionName = String.format("%s-%s",subcomponent,version);
+            RemoteVersion[] versions = svc.getVersions(token,"JENKINS");
+            found = false;
+            for (RemoteVersion v : versions) {
+                if(v.getName().equals(versionName)) {
+                    svc.releaseVersion(token,"JENKINS",v);
                     found = true;
                     break;
                 }
             }
-            
-            if(!found) {
-                sendMessage(channel, "Could not find component: "+subcomponent);
-                return;
-            } 
-            RemoteVersion newVersion = new RemoteVersion();
-            newVersion.setName(String.format("%s-%s",subcomponent,version));
-            if (StringUtils.isNotEmpty(releaseDate)) {
-                SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd");
-                Calendar rDate = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-                rDate.setTime(df.parse(releaseDate));
-                newVersion.setReleaseDate(rDate);
+
+            if (found) {
+                sendMessage(chan,String.format("Version %s released in issue tracker for %s",version,subcomponent));
+            } else {
+                sendMessage(chan,String.format("ERROR: Version %s could not be found in issue tracker for %s",version,subcomponent));
             }
-            newVersion.setReleased(released);
-            
-            sendMessage(channel,"New version created, the new version was"+(released ? "" : " NOT")+" marked as released");
         } catch (Exception e) {
-            sendMessage(channel,"Failed to create a new version: "+e.getMessage());
+            sendMessage(chan,"Failed to release version: "+e.getMessage());
             e.printStackTrace();
         }
     }
@@ -350,47 +452,47 @@ public class IrcBotImpl extends PircBot {
     /**
      * Creates an issue tracker component.
      */
-    private void setDefaultAssignee(String channel, String sender, String subcomponent, String owner) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
+    private void setDefaultAssignee(String chan, String sender, String subcomponent, String owner) {
+        if (!isSenderAuthorized(chan,sender)) {
+            insufficientPermissionError(chan);
             return;
         }
         
-        sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
+        sendMessage(chan,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
         
         try {
             JiraScraper js = new JiraScraper();
             js.setDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD, owner);
-            sendMessage(channel,"Default assignee set to " + owner);
+            sendMessage(chan,"Default assignee set to " + owner);
         } catch (Exception e) {
-            sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
+            sendMessage(chan,"Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
         }
     }
     
-    private void grantAutoVoice(String channel, String sender, String target) {
-        if (!isSenderAuthorized(channel,sender)) {
-          insufficientPermissionError(channel);
+    private void grantAutoVoice(String chan, String sender, String target) {
+        if (!isSenderAuthorized(chan,sender)) {
+          insufficientPermissionError(chan);
           return;
         }
 
-        sendMessage("CHANSERV", "flags " + channel + " " + target + " +V");
-        sendMessage("CHANSERV", "voice " + channel + " " + target);
-        sendMessage(channel, "Voice privilege (+V) added for " + target);
+        sendMessage("CHANSERV", "flags " + chan + " " + target + " +V");
+        sendMessage("CHANSERV", "voice " + chan + " " + target);
+        sendMessage(chan, "Voice privilege (+V) added for " + target);
     }
 
-    private void removeAutoVoice(String channel, String sender, String target) {
-      if (!isSenderAuthorized(channel,sender)) {
-        insufficientPermissionError(channel);
+    private void removeAutoVoice(String chan, String sender, String target) {
+      if (!isSenderAuthorized(chan,sender)) {
+        insufficientPermissionError(chan);
         return;
       }
 
-      sendMessage("CHANSERV", "flags " + channel + " " + target + " -V");
-      sendMessage("CHANSERV", "devoice " + channel + " " + target);
-      sendMessage(channel, "Voice privilege (-V) removed for " + target);
+      sendMessage("CHANSERV", "flags " + chan + " " + target + " -V");
+      sendMessage("CHANSERV", "devoice " + chan + " " + target);
+      sendMessage(chan, "Voice privilege (-V) removed for " + target);
     }
 
-    private void createGitHubRepository(String channel, String name, String collaborator) {
+    private void createGitHubRepository(String chan, String name, String collaborator) {
         try {
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization("jenkinsci");
@@ -401,9 +503,9 @@ public class IrcBotImpl extends PircBot {
             if (collaborator!=null)
                 t.add(github.getUser(collaborator));
 
-            sendMessage(channel,"New github repository created at "+r.getUrl());
+            sendMessage(chan,"New github repository created at "+r.getUrl());
         } catch (IOException e) {
-            sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            sendMessage(chan,"Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
     }
@@ -414,9 +516,9 @@ public class IrcBotImpl extends PircBot {
      * @param justForThisRepo
      *      Null to add to "Everyone", otherwise add him to a team specific repository.
      */
-    private void addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
+    private void addGitHubCommitter(String chan, String sender, String collaborator, String justForThisRepo) {
+        if (!isSenderAuthorized(chan,sender)) {
+            insufficientPermissionError(chan);
             return;
         }
         try {
@@ -428,7 +530,7 @@ public class IrcBotImpl extends PircBot {
             if (justForThisRepo != null) {
                 GHRepository forThisRepo = o.getRepository(justForThisRepo);
                  if (forThisRepo == null) {
-                     sendMessage(channel,"Could not find repository:  "+justForThisRepo);
+                     sendMessage(chan,"Could not find repository:  "+justForThisRepo);
                      return;
                  }
                  t = getOrCreateRepoLocalTeam(o, forThisRepo);
@@ -437,7 +539,7 @@ public class IrcBotImpl extends PircBot {
             }
                 
             if (t==null) {
-                sendMessage(channel,"No team for "+justForThisRepo);
+                sendMessage(chan,"No team for "+justForThisRepo);
                 return;
             }
 
@@ -446,9 +548,9 @@ public class IrcBotImpl extends PircBot {
             if (justForThisRepo != null) {
                 successMsg += " for repository " + justForThisRepo;
             }
-            sendMessage(channel,successMsg);
+            sendMessage(chan,successMsg);
         } catch (IOException e) {
-            sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            sendMessage(chan,"Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
     }
@@ -457,19 +559,19 @@ public class IrcBotImpl extends PircBot {
      * @param newName
      *      If not null, rename a epository after a fork.
      */
-    private void forkGitHub(String channel, String owner, String repo, String newName) {
+    private void forkGitHub(String chan, String owner, String repo, String newName) {
         try {
-            sendMessage(channel, "Forking "+repo);
+            sendMessage(chan, "Forking "+repo);
 
             GitHub github = GitHub.connect();
             GHUser user = github.getUser(owner);
             if (user==null) {
-                sendMessage(channel,"No such user: "+owner);
+                sendMessage(chan,"No such user: "+owner);
                 return;
             }
             GHRepository orig = user.getRepository(repo);
             if (orig==null) {
-                sendMessage(channel,"No such repository: "+repo);
+                sendMessage(chan,"No such repository: "+repo);
                 return;
             }
 
@@ -509,7 +611,7 @@ public class IrcBotImpl extends PircBot {
                 t.add(user);    // the user immediately joins this team
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
-                sendMessage(channel,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
+                sendMessage(chan,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
                 // fall through
             }
 
@@ -519,17 +621,17 @@ public class IrcBotImpl extends PircBot {
 
             setupRepository(r);
 
-            sendMessage(channel, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
+            sendMessage(chan, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
 
             // remove all the existing teams
             for (GHTeam team : legacyTeams)
                 team.remove(r);
 
         } catch (InterruptedException e) {
-            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
+            sendMessage(chan,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
         } catch (IOException e) {
-            sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
+            sendMessage(chan,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
         }
     }
@@ -562,9 +664,9 @@ public class IrcBotImpl extends PircBot {
 
     public static void main(String[] args) throws Exception {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
-        bot.connect("irc.freenode.net");
+        bot.connect(server);
         bot.setVerbose(true);
-        bot.joinChannel("#jenkins");
+        bot.joinChannel(channel);
         if (args.length>0) {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
