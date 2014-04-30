@@ -94,7 +94,12 @@ public class IrcBotImpl extends PircBot {
             // not send to me
             Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
             while (m.find()) {
-                replyBugStatus(channel,m.group(1));
+                replyBugStatus(channel,"JENKINS-"+m.group(1));
+            }
+
+            m = Pattern.compile("(?:infra-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+            while (m.find()) {
+                replyBugStatus(channel,"INFRA-"+m.group(1));
             }
             return;
         }
@@ -179,10 +184,10 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void replyBugStatus(String channel, String number) {
-        Long time = recentIssues.get(number);
+    private void replyBugStatus(String channel, String ticket) {
+        Long time = recentIssues.get(ticket);
 
-        recentIssues.put(number,System.currentTimeMillis());
+        recentIssues.put(ticket,System.currentTimeMillis());
 
         if (time!=null) {
             if (System.currentTimeMillis()-time < 60*1000) {
@@ -191,19 +196,19 @@ public class IrcBotImpl extends PircBot {
         }
 
         try {
-            sendMessage(channel, getSummary(number));
+            sendMessage(channel, getSummary(ticket));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private String getSummary(String number) throws ServiceException, IOException {
+    private String getSummary(String ticket) throws ServiceException, IOException {
         JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
         ConnectionInfo con = new ConnectionInfo();
         String token = svc.login(con.userName, con.password);
-        RemoteIssue issue = svc.getIssue(token, "JENKINS-" + number);
+        RemoteIssue issue = svc.getIssue(token, ticket);
         return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "http://jenkins-ci.org/issue/"+number);
+                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "https://issues.jenkins-ci.org/browse/"+ticket);
     }
 
     private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
