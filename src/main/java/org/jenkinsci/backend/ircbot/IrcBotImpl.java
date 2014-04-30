@@ -32,8 +32,10 @@ import java.net.URL;
 import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.Set;
@@ -84,7 +86,7 @@ public class IrcBotImpl extends PircBot {
 
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
-        if (!channel.equals("#jenkins"))     return; // not in this channel
+        if (!CHANNELS.contains(channel))     return; // not in this channel
         if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
 
         message = message.trim();
@@ -512,7 +514,9 @@ public class IrcBotImpl extends PircBot {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         bot.connect("irc.freenode.net");
         bot.setVerbose(true);
-        bot.joinChannel("#jenkins");
+        for (String channel : CHANNELS) {
+            bot.joinChannel(channel);
+        }
         if (args.length>0) {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
@@ -565,4 +569,6 @@ public class IrcBotImpl extends PircBot {
     }
 
     static final String POST_COMMIT_HOOK_EMAIL = "jenkinsci-commits@googlegroups.com";
+
+    static final Set<String> CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
 }
