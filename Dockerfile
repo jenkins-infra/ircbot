@@ -1,6 +1,6 @@
 FROM ubuntu:trusty
 
-RUN apt-get install -y openjdk-6-jre unzip
+RUN apt-get update; apt-get install -y openjdk-6-jre unzip
 
 RUN useradd --create-home ircbot
 ADD target/ircbot-1.0-SNAPSHOT-bin.zip /usr/local/bin/ircbot.zip
