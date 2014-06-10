@@ -113,13 +113,13 @@ public class IrcBotImpl extends PircBot {
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, m.group(1), m.group(2));
+            createGitHubRepository(channel, sender, m.group(1), m.group(2));
             return;
         }
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, m.group(1),m.group(2),m.group(3));
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3));
             return;
         }
 
@@ -340,8 +340,13 @@ public class IrcBotImpl extends PircBot {
       sendMessage(channel, "Voice privilege (-V) removed for " + target);
     }
 
-    private void createGitHubRepository(String channel, String name, String collaborator) {
+    private void createGitHubRepository(String channel, String sender, String name, String collaborator) {
         try {
+            if (!isSenderAuthorized(channel,sender)) {
+                insufficientPermissionError(channel);
+                return;
+            }
+
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization("jenkinsci");
             GHRepository r = org.createRepository(name, "", "", "Everyone", true);
@@ -407,8 +412,13 @@ public class IrcBotImpl extends PircBot {
      * @param newName
      *      If not null, rename a epository after a fork.
      */
-    private void forkGitHub(String channel, String owner, String repo, String newName) {
+    private void forkGitHub(String channel, String sender, String owner, String repo, String newName) {
         try {
+            if (!isSenderAuthorized(channel,sender)) {
+                insufficientPermissionError(channel);
+                return;
+            }
+
             sendMessage(channel, "Forking "+repo);
 
             GitHub github = GitHub.connect();
