@@ -140,6 +140,16 @@ public class IrcBotImpl extends PircBot {
             createComponent(channel, sender, m.group(1), m.group(2));
             return;
         }
+        
+        m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            deleteComponent(channel, sender, m.group(1), m.group(2));
+        }
+
+        m = Pattern.compile("rename component (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            renameComponent(channel, sender, m.group(1), m.group(2));
+        }
 
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
@@ -158,7 +168,7 @@ public class IrcBotImpl extends PircBot {
             removeAutoVoice(channel,sender,m.group(1));
             return;
         }
-
+              
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -297,6 +307,48 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
+    /**
+     * Renames an issue tracker component.
+     */
+    private void renameComponent(String channel, String sender, String oldName, String newName) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        sendMessage(channel,String.format("Renaming subcomponent %s to %s", oldName, newName));
+
+        try {
+            JiraScraper js = new JiraScraper();
+            js.renameComponent("JENKINS", oldName, newName);
+            sendMessage(channel,"The component has been renamed");
+        } catch (Exception e) {
+            sendMessage(channel,e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Deletes an issue tracker component.
+     */
+    private void deleteComponent(String channel, String sender, String deletedComponent, String backupComponent) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        sendMessage(channel,String.format("Deleting the subcomponent %s. All issues will be moved to %s", deletedComponent, backupComponent));
+
+        try {
+            JiraScraper js = new JiraScraper();
+            js.deleteComponent("JENKINS", deletedComponent, backupComponent);
+            sendMessage(channel,"The component has been deleted");
+        } catch (Exception e) {
+            sendMessage(channel,e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     /**
      * Creates an issue tracker component.
      */
