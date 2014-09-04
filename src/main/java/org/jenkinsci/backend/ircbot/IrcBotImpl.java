@@ -141,7 +141,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
         
-        m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             deleteComponent(channel, sender, m.group(1), m.group(2));
         }
