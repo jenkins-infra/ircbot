@@ -247,7 +247,7 @@ public class IrcBotImpl extends PircBot {
             } catch (Exception e) {
                 e.printStackTrace();
                 try {
-                    Thread.sleep(3000);
+                    Thread.sleep(15000);
                 } catch (InterruptedException _) {
                     return; // abort
                 }
