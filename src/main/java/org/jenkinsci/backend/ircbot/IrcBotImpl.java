@@ -516,9 +516,12 @@ public class IrcBotImpl extends PircBot {
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
 
+            GHTeam everyone = org.getTeams().get("Everyone");
+
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             try {
                 t.add(user);    // the user immediately joins this team
+                everyone.add(user);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 sendMessage(channel,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
@@ -526,7 +529,6 @@ public class IrcBotImpl extends PircBot {
             }
 
             // the Everyone group gets access to this new repository, too.
-            GHTeam everyone = org.getTeams().get("Everyone");
             everyone.add(r);
 
             setupRepository(r);
