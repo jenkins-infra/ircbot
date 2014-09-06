@@ -144,11 +144,13 @@ public class IrcBotImpl extends PircBot {
         m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             deleteComponent(channel, sender, m.group(1), m.group(2));
+            return;
         }
 
         m = Pattern.compile("rename component (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             renameComponent(channel, sender, m.group(1), m.group(2));
+            return;
         }
 
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
