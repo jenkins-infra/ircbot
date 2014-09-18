@@ -4,4 +4,4 @@
 This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc.
 
 ## Deployment
-This repo is containerized, then deployed to our infrastructure via Puppet.
+This repo is containerized, then deployed to our infrastructure via Puppet. Currently, the functionality is broken (see INFRA-129)
