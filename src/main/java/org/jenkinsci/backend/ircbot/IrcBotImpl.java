@@ -169,7 +169,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("(?:rem|remove) (?:the )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:rem|remove) (?:the )?(?:lead|default assignee) (?:for|of|from) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             removeDefaultAssignee(channel, sender, m.group(1));
             return;
