@@ -83,32 +83,48 @@ public class IrcBotImpl extends PircBot {
         setName("jenkins-admin");
         this.unknownCommands = unknownCommands;
     }
-
+    
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
         if (!CHANNELS.contains(channel))     return; // not in this channel
         if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
-
-        message = message.trim();
+        final String directMessagePrefix = getNick() + ":";
         
-        String prefix = getNick() + ":";
-        if (!message.startsWith(prefix)) {
-            // not send to me
-            Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
-            while (m.find()) {
-                replyBugStatus(channel,"JENKINS-"+m.group(1));
+        message = message.trim();
+        try {
+            if (message.startsWith(directMessagePrefix)) { // Direct command to the bot
+                // remove prefixes, trim whitespaces
+                String payload = message.substring(directMessagePrefix.length(), message.length()).trim();
+                payload = payload.replaceAll("\\s+", " ");
+                handleDirectCommand(channel, sender, login, hostname, payload);
+            } else {   // Just a commmon message in the chat
+                replyBugStatuses(channel, message);
             }
-
-            m = Pattern.compile("(?:infra-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-            while (m.find()) {
-                replyBugStatus(channel,"INFRA-"+m.group(1));
-            }
-            return;
+        } catch (RuntimeException ex) { // Catch unhandled runtime issues
+            ex.printStackTrace();
+            sendMessage(channel, "An error ocurred in the Bot. Please submit a bug to Jenkins INFRA project.");
+            sendMessage(channel, ex.getMessage());
+            throw ex; // Propagate the error to the caller in order to let it log and handle the issue
+        }
+    }
+        
+    private void replyBugStatuses(String channel, String message) {
+        Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"JENKINS-"+m.group(1));
         }
 
-        String payload = message.substring(prefix.length(), message.length()).trim();
-        // replace duplicate whitespace with a single space
-        payload = payload.replaceAll("\\s+", " ");
+        m = Pattern.compile("(?:infra-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"INFRA-"+m.group(1));
+        }
+    }
+    
+    /**
+     * Handles direct commands coming to the bot.
+     * The handler presumes the external trimming of the payload.
+     */
+    private void handleDirectCommand(String channel, String sender, String login, String hostname, String payload) {
         Matcher m;
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
@@ -284,7 +300,7 @@ public class IrcBotImpl extends PircBot {
         } catch (IOException e) {
             e.printStackTrace();
             sendMessage(channel,"I don't know who I am");
-        }
+        } 
     }
 
     private void insufficientPermissionError(String channel) {
