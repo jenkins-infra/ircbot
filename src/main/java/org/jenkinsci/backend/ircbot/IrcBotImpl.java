@@ -153,6 +153,12 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:rem|remove) (?:the )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            removeDefaultAssignee(channel, sender, m.group(1));
+            return;
+        }
+        
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setDefaultAssignee(channel, sender, m.group(2), m.group(1));
@@ -349,6 +355,13 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,e.getMessage());
             e.printStackTrace();
         }
+    }
+    
+    /**
+     * Deletes an assignee from the specified component
+     */
+    private void removeDefaultAssignee(String channel, String sender, String subcomponent) {
+        setDefaultAssignee(channel, sender, subcomponent, null);
     }
     
     /**
