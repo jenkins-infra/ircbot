@@ -181,6 +181,18 @@ public class IrcBotImpl extends PircBot {
             return;
         }
         
+        m = Pattern.compile("set (?:the )?description (?:for|of) (?:component )?(\\S+) to \\\"(.*)\\\"",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            setComponentDescription(channel, sender, m.group(1) , m.group(2));
+            return;
+        }
+        
+        m = Pattern.compile("(?:rem|remove) (?:the )?description (?:for|of) (?:component )?(\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            setComponentDescription(channel, sender, m.group(1) , null);
+            return;
+        }
+        
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantAutoVoice(channel,sender,m.group(1));
@@ -403,6 +415,28 @@ public class IrcBotImpl extends PircBot {
             }
         } catch (Exception e) {
             sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Sets the component description.
+     * @param description Component description. Use null to remove the description
+     */
+    private void setComponentDescription(String channel, String sender, String componentName, String description) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        sendMessage(channel,String.format("Updating the description of component %s", componentName));
+
+        try {
+            JiraScraper js = new JiraScraper();
+            js.setComponentDescription("JENKINS", componentName, description);        
+            sendMessage(channel,"The component description has been " + (description != null ? "updated" : "removed"));
+        } catch (Exception e) {
+            sendMessage(channel,e.getMessage());
             e.printStackTrace();
         }
     }
