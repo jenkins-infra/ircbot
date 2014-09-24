@@ -382,6 +382,7 @@ public class IrcBotImpl extends PircBot {
     
     /**
      * Creates an issue tracker component.
+     * @param owner User ID or null if the owner should be removed 
      */
     private void setDefaultAssignee(String channel, String sender, String subcomponent, String owner) {
         if (!isSenderAuthorized(channel,sender)) {
@@ -393,8 +394,13 @@ public class IrcBotImpl extends PircBot {
         
         try {
             JiraScraper js = new JiraScraper();
-            js.setDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD, owner);
-            sendMessage(channel,"Default assignee set to " + owner);
+            if (owner != null) {
+                js.setDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD, owner);
+                sendMessage(channel,"Default assignee set to " + owner);
+            } else {
+                js.removeDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD);
+                sendMessage(channel,"Default assignee has been removed");
+            }
         } catch (Exception e) {
             sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
