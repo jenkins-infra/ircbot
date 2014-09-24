@@ -18,7 +18,7 @@ Actions:
  * Change the <code>$tag</code> variable in the <code>class profile::jenkinsadmin</code> class. 
    * Format: build${JENKINSCI_BUILD_NUMBER}
  * Create a pull request to the main repo. Branch=staging
- * Wait till the merge of the pull request
+ * Wait till the merge of the pull request. Write to #jenkins-infra channel to request the review
 5. Wait till the deployment
  * See first steps of the deployment process on https://jenkins.ci.cloudbees.com/job/infra/job/jenkins-infra
  * The further deployment will be performed asynchronously (puppet checks for changes once per 15 minutes)
