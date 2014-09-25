@@ -35,4 +35,7 @@ tag :
 push :
 	docker push ${IMAGENAME}
 
+clean:
+	rm -rf target/*
+	rm ${VERSION_FILE}
 
