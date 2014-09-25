@@ -12,11 +12,11 @@ target/ircbot-1.0-SNAPSHOT-bin.zip : ${VERSION_FILE}
 	mvn install
 
 ${VERSION_FILE} :
-	echo buildNumber=${VERSION_BUILD_NUMBER} > ${VERSION_FILE}
-	echo buildDate=${TAG} >> ${VERSION_FILE}
-	echo buildID=${VERSION_BUILD_ID} >> ${VERSION_FILE}
-	echo buildURL=${VERSION_BUILD_URL} >> ${VERSION_FILE}
-	echo gitCommit=${VERSION_GIT_COMMIT} >> ${VERSION_FILE}
+	echo "buildNumber=${VERSION_BUILD_NUMBER}" > ${VERSION_FILE}
+	echo "buildDate=${TAG}" >> ${VERSION_FILE}
+	echo "buildID=${VERSION_BUILD_ID}" >> ${VERSION_FILE}
+	echo "buildURL=${VERSION_BUILD_URL}" >> ${VERSION_FILE}
+	echo "gitCommit=${VERSION_GIT_COMMIT}" >> ${VERSION_FILE}
 
 image : target/ircbot-1.0-SNAPSHOT-bin.zip
 	docker build -t ${IMAGENAME} .
