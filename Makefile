@@ -23,7 +23,7 @@ ${VERSION_FILE} : ${VERSION_FILE_DIR}
 ${VERSION_FILE_DIR} :
 	mkdir ${VERSION_FILE_DIR}
 
-image : target/ircbot-1.0-SNAPSHOT-bin.zip
+image : clean target/ircbot-1.0-SNAPSHOT-bin.zip
 	docker build -t ${IMAGENAME} .
 
 run :
