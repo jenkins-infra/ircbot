@@ -291,7 +291,7 @@ public class IrcBotImpl extends PircBot {
 
     private void version(String channel) {
         try {
-            IrcBotBuildInfo buildInfo = IrcBotBuildInfo.readResourceFile("versionInfo.properties");
+            IrcBotBuildInfo buildInfo = IrcBotBuildInfo.readResourceFile("/versionInfo.properties");
             sendMessage(channel,"My version is "+buildInfo);
             sendMessage(channel,"Build URL: "+buildInfo.getBuildURL());
         } catch (IOException e) {

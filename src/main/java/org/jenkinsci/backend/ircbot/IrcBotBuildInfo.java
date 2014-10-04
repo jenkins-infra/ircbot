@@ -6,11 +6,8 @@
 
 package org.jenkinsci.backend.ircbot;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.Properties;
 
 /**
@@ -55,7 +52,7 @@ import java.util.Properties;
 
     @Override
     public String toString() {
-        return String.format("build%n %s (%s)", buildNumber, gitCommit, buildDate);
+        return String.format("build%s %s (%s)", buildNumber, gitCommit, buildDate);
     }
     
     private static String readProperty(Properties propFile, String key) throws IOException {
@@ -67,12 +64,15 @@ import java.util.Properties;
     }
     
     public static IrcBotBuildInfo readResourceFile (String resourcePath) throws IOException {
-        final URL resource = IrcBotBuildInfo.class.getClassLoader().getResource(resourcePath);
-        if (resource == null) {
+        InputStream istream = IrcBotBuildInfo.class.getResourceAsStream(resourcePath);      
+        if (istream == null) {
             throw new IOException("Cannot find resource "+resourcePath);
         }
-        File file = new File(resource.getPath());
-        return readFile(new FileInputStream(file));
+        try {
+            return readFile(istream);
+        } finally {
+            istream.close();
+        }
     }
     
     public static IrcBotBuildInfo readFile(InputStream istream) throws IOException {
