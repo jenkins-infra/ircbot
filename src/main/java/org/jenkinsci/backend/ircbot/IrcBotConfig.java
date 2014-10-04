@@ -15,7 +15,11 @@ public class IrcBotConfig {
     /**package*/ static int CACHE_REFRESH_PERIOD = Integer.getInteger(IrcBotConfig.class.getName() + ".cacheRefreshPeriod", 1000);
     
     // General
-    static String NAME = System.getProperty(varPrefix+"name", "jenkins-admin");
+    /**
+     * Name of the bot (up to 16 symbols).
+     */
+    private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name")); 
+    static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
     
     // IRC Hook
     static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
