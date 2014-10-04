@@ -20,10 +20,10 @@ public class IrcBotConfig {
      */
     private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name")); 
     static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
+    static String SERVER = System.getProperty(varPrefix+"server", "irc.freenode.net");
     
     // IRC Hook
-    static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
-    static String IRC_HOOK_SERVER = System.getProperty(varPrefix+"ircHook.server", "irc.freenode.net");
+    static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");  
     static String IRC_HOOK_PORT = System.getProperty(varPrefix+"ircHook.port", "6667");
     static String IRC_HOOK_NICK = System.getProperty(varPrefix+"ircHook.nick", "github-jenkins");
     static String IRC_HOOK_PASSWORD = System.getProperty(varPrefix+"ircHook.password", "");
@@ -41,7 +41,7 @@ public class IrcBotConfig {
     public static Map<String, String> getIRCHookConfig() {
         
         final Map<String, String> ircHookConfig = new TreeMap<String, String>();
-        ircHookConfig.put("server", IRC_HOOK_SERVER);
+        ircHookConfig.put("server", SERVER);
         ircHookConfig.put("port", IRC_HOOK_PORT);
         ircHookConfig.put("nick", IRC_HOOK_NICK);
         ircHookConfig.put("password", IRC_HOOK_PASSWORD);

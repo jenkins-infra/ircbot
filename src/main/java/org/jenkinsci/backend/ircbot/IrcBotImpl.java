@@ -633,8 +633,8 @@ public class IrcBotImpl extends PircBot {
 
     public static void main(String[] args) throws Exception {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
-        System.out.println("Connecting to "+IrcBotConfig.IRC_HOOK_SERVER+" as "+IrcBotConfig.NAME);
-        bot.connect(IrcBotConfig.IRC_HOOK_SERVER);
+        System.out.println("Connecting to "+IrcBotConfig.SERVER+" as "+IrcBotConfig.NAME);
+        bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
         for (String channel : CHANNELS) {
             bot.joinChannel(channel);
