@@ -30,8 +30,8 @@ public final class FixUpIrcCommitHook {
                 continue;
             }
 
-            repository.createHook(IrcBotImpl.IRC_HOOK_NAME,
-                    IrcBotImpl.IRC_HOOK_CONFIG, (Collection<GHEvent>) null,
+            repository.createHook(IrcBotConfig.IRC_HOOK_NAME,
+                    IrcBotConfig.getIRCHookConfig(), (Collection<GHEvent>) null,
                     true);
             LOG.info(" ... created new IRC hook");
         }
@@ -42,8 +42,7 @@ public final class FixUpIrcCommitHook {
         if (repository != null) {
             for (final GHHook hook : repository.getHooks()) {
                 if (hook != null) {
-                    if (IrcBotImpl.IRC_HOOK_NAME.equalsIgnoreCase(hook
-                            .getName()))
+                    if (IrcBotConfig.IRC_HOOK_NAME.equalsIgnoreCase(hook.getName()))
                         return true;
                 }
             }
