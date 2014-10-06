@@ -67,7 +67,7 @@ import java.util.Properties;
     }
     
     public static IrcBotBuildInfo readResourceFile (String resourcePath) throws IOException {
-        final URL resource = Thread.currentThread().getContextClassLoader().getResource(resourcePath);
+        final URL resource = IrcBotBuildInfo.class.getClassLoader().getResource(resourcePath);
         if (resource == null) {
             throw new IOException("Cannot find resource "+resourcePath);
         }
