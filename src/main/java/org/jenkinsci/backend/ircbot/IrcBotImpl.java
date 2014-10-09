@@ -50,23 +50,7 @@ import static java.util.regex.Pattern.*;
  * @author Kohsuke Kawaguchi
  */
 public class IrcBotImpl extends PircBot {
-    protected static final String              IRC_HOOK_NAME = "irc";
-
-    protected static final Map<String, String> IRC_HOOK_CONFIG;
-
-    static {
-        final Map<String, String> ircHookConfig = new TreeMap<String, String>();
-
-        ircHookConfig.put("server", "irc.freenode.net");
-        ircHookConfig.put("port", "6667");
-        ircHookConfig.put("nick", "github-jenkins");
-        ircHookConfig.put("password", "");
-        ircHookConfig.put("room", "#jenkins-commits");
-        ircHookConfig.put("long_url", "1");
-
-        IRC_HOOK_CONFIG = Collections.unmodifiableMap(ircHookConfig);
-    }
-
+    
     /**
      * Records commands that we didn't understand.
      */
@@ -80,14 +64,15 @@ public class IrcBotImpl extends PircBot {
     private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
 
     public IrcBotImpl(File unknownCommands) {
-        setName("jenkins-admin");
+        setName(IrcBotConfig.NAME);
         this.unknownCommands = unknownCommands;
     }
     
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
         if (!CHANNELS.contains(channel))     return; // not in this channel
-        if (sender.equals("jenkinsci_builds"))   return; // ignore messages from other bots
+        if (sender.equals("jenkinsci_builds") || sender.equals("jenkins-admin") || sender.startsWith("ircbot-"))   
+            return; // ignore messages from other bots
         final String directMessagePrefix = getNick() + ":";
         
         message = message.trim();
@@ -307,7 +292,7 @@ public class IrcBotImpl extends PircBot {
 
     private void version(String channel) {
         try {
-            IrcBotBuildInfo buildInfo = IrcBotBuildInfo.readResourceFile("versionInfo.properties");
+            IrcBotBuildInfo buildInfo = IrcBotBuildInfo.readResourceFile("/versionInfo.properties");
             sendMessage(channel,"My version is "+buildInfo);
             sendMessage(channel,"Build URL: "+buildInfo.getBuildURL());
         } catch (IOException e) {
@@ -336,7 +321,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             JiraScraper js = new JiraScraper();
-            js.createComponent("JENKINS", subcomponent, owner, AssigneeType.COMPONENT_LEAD);
+            js.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, owner, AssigneeType.COMPONENT_LEAD);
             sendMessage(channel,"New component created");
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
@@ -357,7 +342,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             JiraScraper js = new JiraScraper();
-            js.renameComponent("JENKINS", oldName, newName);
+            js.renameComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName, newName);
             sendMessage(channel,"The component has been renamed");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -378,7 +363,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             JiraScraper js = new JiraScraper();
-            js.deleteComponent("JENKINS", deletedComponent, backupComponent);
+            js.deleteComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent, backupComponent);
             sendMessage(channel,"The component has been deleted");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -408,10 +393,10 @@ public class IrcBotImpl extends PircBot {
         try {
             JiraScraper js = new JiraScraper();
             if (owner != null) {
-                js.setDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD, owner);
+                js.setDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD, owner);
                 sendMessage(channel,"Default assignee set to " + owner);
             } else {
-                js.removeDefaultAssignee("JENKINS", subcomponent, AssigneeType.COMPONENT_LEAD);
+                js.removeDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD);
                 sendMessage(channel,"Default assignee has been removed");
             }
         } catch (Exception e) {
@@ -434,7 +419,7 @@ public class IrcBotImpl extends PircBot {
 
         try {
             JiraScraper js = new JiraScraper();
-            js.setComponentDescription("JENKINS", componentName, description);        
+            js.setComponentDescription(IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName, description);        
             sendMessage(channel,"The component description has been " + (description != null ? "updated" : "removed"));
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -472,8 +457,8 @@ public class IrcBotImpl extends PircBot {
             }
 
             GitHub github = GitHub.connect();
-            GHOrganization org = github.getOrganization("jenkinsci");
-            GHRepository r = org.createRepository(name, "", "", "Everyone", true);
+            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+            GHRepository r = org.createRepository(name, "", "", IrcBotConfig.GITHUB_DEFAULT_TEAM, true);
             setupRepository(r);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
@@ -501,7 +486,7 @@ public class IrcBotImpl extends PircBot {
         try {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
-            GHOrganization o = github.getOrganization("jenkinsci");
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
             
             final GHTeam t;
             if (justForThisRepo != null) {
@@ -627,8 +612,8 @@ public class IrcBotImpl extends PircBot {
         r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
-        r.createHook(IrcBotImpl.IRC_HOOK_NAME,
-                IrcBotImpl.IRC_HOOK_CONFIG, (Collection<GHEvent>) null,
+        r.createHook(IrcBotConfig.IRC_HOOK_NAME,
+                IrcBotConfig.getIRCHookConfig(), (Collection<GHEvent>) null,
                 true);
     }
 
@@ -648,7 +633,8 @@ public class IrcBotImpl extends PircBot {
 
     public static void main(String[] args) throws Exception {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
-        bot.connect("irc.freenode.net");
+        System.out.println("Connecting to "+IrcBotConfig.SERVER+" as "+IrcBotConfig.NAME);
+        bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
         for (String channel : CHANNELS) {
             bot.joinChannel(channel);

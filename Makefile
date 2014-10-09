@@ -37,5 +37,5 @@ push :
 
 clean:
 	rm -rf target/*
-	rm ${VERSION_FILE}
+	rm -f ${VERSION_FILE} 
 

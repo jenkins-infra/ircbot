@@ -13,7 +13,7 @@ public class IrcBotBuildInfoTest extends TestCase {
     
     @Issue("INFRA-135")
     public void testVersionInfoStub() throws IOException {
-        IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("versionInfo_test.properties");
+        IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("/versionInfo_test.properties");
         assertEquals("a", info.getBuildNumber());
         assertEquals("b", info.getBuildDate());
         assertEquals("c", info.getBuildID());
@@ -29,7 +29,7 @@ public class IrcBotBuildInfoTest extends TestCase {
      */
     @Issue("INFRA-135")
     public void testVersionInfoReal() throws IOException {
-        IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("versionInfo.properties");
+        IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("/versionInfo.properties");
         System.out.println(info);
     }
 }
