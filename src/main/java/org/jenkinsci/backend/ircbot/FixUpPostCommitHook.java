@@ -13,7 +13,7 @@ import org.kohsuke.github.GitHub;
 public class FixUpPostCommitHook {
     public static void main(String[] args) throws Exception {
         GitHub github = GitHub.connect();
-        GHOrganization org = github.getOrganization("jenkinsci");
+        GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
 
         GHTeam e = org.getTeams().get("Everyone");
 

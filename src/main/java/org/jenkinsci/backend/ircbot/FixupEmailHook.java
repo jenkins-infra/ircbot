@@ -16,7 +16,7 @@ public class FixupEmailHook {
     public static void main(String[] args) throws Exception {
         final GitHub github = GitHub.connect();
 
-        for (GHRepository repository : github.getOrganization("jenkinsci").listRepositories()) {
+        for (GHRepository repository : github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION).listRepositories()) {
             LOG.info("Found GitHub repository " + repository.getName());
 
             if (hasMailHook(repository)) {
