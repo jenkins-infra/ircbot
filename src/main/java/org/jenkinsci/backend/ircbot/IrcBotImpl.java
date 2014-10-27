@@ -476,7 +476,7 @@ public class IrcBotImpl extends PircBot {
      * Adds a new collaborator to existing repositories.
      *
      * @param justForThisRepo
-     *      Null to add to "Everyone", otherwise add him to a team specific repository.
+     *      Null to add to add the default team ("Everyone"), otherwise add him to a team specific repository.
      */
     private void addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
         if (!isSenderAuthorized(channel,sender)) {
@@ -497,7 +497,7 @@ public class IrcBotImpl extends PircBot {
                  }
                  t = getOrCreateRepoLocalTeam(o, forThisRepo);
             } else {
-                t = o.getTeams().get("Everyone");
+                t = o.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
             }
                 
             if (t==null) {
@@ -542,7 +542,7 @@ public class IrcBotImpl extends PircBot {
                 return;
             }
 
-            GHOrganization org = github.getOrganization("jenkinsci");
+            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
             GHRepository r;
             try {
                 r = orig.forkTo(org);
@@ -573,12 +573,12 @@ public class IrcBotImpl extends PircBot {
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
 
-            GHTeam everyone = org.getTeams().get("Everyone");
+            GHTeam defaultTeam = org.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             try {
                 t.add(user);    // the user immediately joins this team
-                everyone.add(user);
+                defaultTeam.add(user);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 sendMessage(channel,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
@@ -586,11 +586,11 @@ public class IrcBotImpl extends PircBot {
             }
 
             // the Everyone group gets access to this new repository, too.
-            everyone.add(r);
+            defaultTeam.add(r);
 
             setupRepository(r);
 
-            sendMessage(channel, "Created https://github.com/jenkinsci/" + (newName != null ? newName : repo));
+            sendMessage(channel, "Created https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + (newName != null ? newName : repo));
 
             // remove all the existing teams
             for (GHTeam team : legacyTeams)
@@ -634,6 +634,7 @@ public class IrcBotImpl extends PircBot {
     public static void main(String[] args) throws Exception {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         System.out.println("Connecting to "+IrcBotConfig.SERVER+" as "+IrcBotConfig.NAME);
+        System.out.println("GirHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
         bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
         for (String channel : CHANNELS) {

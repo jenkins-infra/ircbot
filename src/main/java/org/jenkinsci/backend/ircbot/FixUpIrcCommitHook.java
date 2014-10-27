@@ -21,7 +21,7 @@ public final class FixUpIrcCommitHook {
     public static void main(String[] args) throws Exception {
         final GitHub github = GitHub.connect();
 
-        for (GHRepository repository : github.getOrganization("jenkinsci")
+        for (GHRepository repository : github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION)
                 .getRepositories().values()) {
             LOG.info("Found GitHub repository " + repository.getName());
 
