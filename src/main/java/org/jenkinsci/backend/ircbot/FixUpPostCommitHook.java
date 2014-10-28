@@ -15,7 +15,7 @@ public class FixUpPostCommitHook {
         GitHub github = GitHub.connect();
         GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
 
-        GHTeam e = org.getTeams().get("Everyone");
+        GHTeam e = org.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
 
         for (GHRepository r : org.getRepositories().values()) {
             if (r.getName().endsWith("-plugin")) {

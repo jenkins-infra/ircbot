@@ -24,7 +24,7 @@ public class FixupEmailHook {
                 continue;
             }
 
-            repository.setEmailServiceHook(IrcBotImpl.POST_COMMIT_HOOK_EMAIL);
+            repository.setEmailServiceHook(IrcBotConfig.GITHUB_POST_COMMIT_HOOK_EMAIL);
             LOG.info(" ... created new email hook");
         }
     }

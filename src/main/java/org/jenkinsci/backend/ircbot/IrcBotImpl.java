@@ -70,7 +70,7 @@ public class IrcBotImpl extends PircBot {
     
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
-        if (!CHANNELS.contains(channel))     return; // not in this channel
+        if (!IrcBotConfig.CHANNELS.contains(channel))     return; // not in this channel
         if (sender.equals("jenkinsci_builds") || sender.equals("jenkins-admin") || sender.startsWith("ircbot-"))   
             return; // ignore messages from other bots
         final String directMessagePrefix = getNick() + ":";
@@ -622,7 +622,7 @@ public class IrcBotImpl extends PircBot {
      * Fix up the repository set up to our policy.
      */
     private void setupRepository(GHRepository r) throws IOException {
-        r.setEmailServiceHook(POST_COMMIT_HOOK_EMAIL);
+        r.setEmailServiceHook(IrcBotConfig.POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
         r.createHook(IrcBotConfig.IRC_HOOK_NAME,
@@ -650,7 +650,7 @@ public class IrcBotImpl extends PircBot {
         System.out.println("GirHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
         bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
-        for (String channel : CHANNELS) {
+        for (String channel : IrcBotConfig.CHANNELS) {
             bot.joinChannel(channel);
         }
         if (args.length>0) {
@@ -703,8 +703,4 @@ public class IrcBotImpl extends PircBot {
             throw new Error(e);
         }
     }
-
-    static final String POST_COMMIT_HOOK_EMAIL = "jenkinsci-commits@googlegroups.com";
-
-    static final Set<String> CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
 }

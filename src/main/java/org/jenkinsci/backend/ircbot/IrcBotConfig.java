@@ -1,7 +1,10 @@
 package org.jenkinsci.backend.ircbot;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 /**
@@ -12,8 +15,7 @@ import java.util.TreeMap;
 public class IrcBotConfig {
     
     private static final String varPrefix = "ircbot.";
-    /**package*/ static int CACHE_REFRESH_PERIOD = Integer.getInteger(IrcBotConfig.class.getName() + ".cacheRefreshPeriod", 1000);
-    
+       
     // General
     /**
      * Name of the bot (up to 16 symbols).
@@ -21,6 +23,7 @@ public class IrcBotConfig {
     private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name")); 
     static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
     static String SERVER = System.getProperty(varPrefix+"server", "irc.freenode.net");
+    static final Set<String> CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
     
     // IRC Hook
     static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");  
@@ -36,8 +39,8 @@ public class IrcBotConfig {
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
     static String GITHUB_DEFAULT_TEAM = System.getProperty(varPrefix+"github.defaultTeam", "Everyone");
-    
-    
+    static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
+     
     public static Map<String, String> getIRCHookConfig() {
         
         final Map<String, String> ircHookConfig = new TreeMap<String, String>();
