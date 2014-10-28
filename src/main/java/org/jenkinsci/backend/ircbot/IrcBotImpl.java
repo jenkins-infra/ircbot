@@ -202,7 +202,7 @@ public class IrcBotImpl extends PircBot {
 
         if (payload.equalsIgnoreCase("refresh")) {
             // get the updated list
-            sendRawLine("NAMES #jenkins");
+            sendRawLine("NAMES " + channel);
             return;
         }
 
@@ -274,7 +274,9 @@ public class IrcBotImpl extends PircBot {
         while (!isConnected()) {
             try {
                 reconnect();
-                joinChannel("#jenkins");
+                for (String channel : IrcBotConfig.CHANNELS) {
+                    joinChannel(channel);
+                }
             } catch (Exception e) {
                 e.printStackTrace();
                 try {
@@ -304,7 +306,7 @@ public class IrcBotImpl extends PircBot {
     private void insufficientPermissionError(String channel) {
         sendMessage(channel,"Only people with + or @ can run this command.");
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
-        sendRawLine("NAMES #jenkins");
+        sendRawLine("NAMES " + channel);
         sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
     }
 
@@ -622,7 +624,7 @@ public class IrcBotImpl extends PircBot {
      * Fix up the repository set up to our policy.
      */
     private void setupRepository(GHRepository r) throws IOException {
-        r.setEmailServiceHook(IrcBotConfig.POST_COMMIT_HOOK_EMAIL);
+        r.setEmailServiceHook(IrcBotConfig.GITHUB_POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
         r.createHook(IrcBotConfig.IRC_HOOK_NAME,
