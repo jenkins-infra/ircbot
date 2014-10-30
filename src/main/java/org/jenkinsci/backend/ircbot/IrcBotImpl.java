@@ -689,7 +689,7 @@ public class IrcBotImpl extends PircBot {
     public static void main(String[] args) throws Exception {
         IrcBotImpl bot = new IrcBotImpl(new File("unknown-commands.txt"));
         System.out.println("Connecting to "+IrcBotConfig.SERVER+" as "+IrcBotConfig.NAME);
-        System.out.println("GirHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
+        System.out.println("GitHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
         bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
         for (String channel : IrcBotConfig.getChannels()) {
