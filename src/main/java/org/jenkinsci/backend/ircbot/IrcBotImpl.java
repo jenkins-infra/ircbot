@@ -70,7 +70,7 @@ public class IrcBotImpl extends PircBot {
     
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
-        if (!IrcBotConfig.CHANNELS.contains(channel))     return; // not in this channel
+        if (!IrcBotConfig.getChannels().contains(channel))     return; // not in this channel
         if (sender.equals("jenkinsci_builds") || sender.equals("jenkins-admin") || sender.startsWith("ircbot-"))   
             return; // ignore messages from other bots
         final String directMessagePrefix = getNick() + ":";
@@ -284,7 +284,7 @@ public class IrcBotImpl extends PircBot {
         while (!isConnected()) {
             try {
                 reconnect();
-                for (String channel : IrcBotConfig.CHANNELS) {
+                for (String channel : IrcBotConfig.getChannels()) {
                     joinChannel(channel);
                 }
             } catch (Exception e) {
@@ -692,7 +692,7 @@ public class IrcBotImpl extends PircBot {
         System.out.println("GirHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
         bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
-        for (String channel : IrcBotConfig.CHANNELS) {
+        for (String channel : IrcBotConfig.getChannels()) {
             bot.joinChannel(channel);
         }
         if (args.length>0) {

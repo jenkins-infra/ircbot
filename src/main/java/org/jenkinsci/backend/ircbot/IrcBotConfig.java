@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import javax.annotation.Nonnull;
 
 /**
  * Stores configurations of {@link IrcBotImpl}.
@@ -23,7 +24,8 @@ public class IrcBotConfig {
     private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name")); 
     static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
     static String SERVER = System.getProperty(varPrefix+"server", "irc.freenode.net");
-    static final Set<String> CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
+    static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
+    static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra");
     
     // IRC Hook
     static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");  
@@ -52,5 +54,18 @@ public class IrcBotConfig {
         ircHookConfig.put("long_url", IRC_HOOK_LONG_URL);
 
         return Collections.unmodifiableMap(ircHookConfig);
+    }
+    
+    public static @Nonnull Set<String> getChannels() {
+        HashSet<String> res = new HashSet<String>();
+        if (CHANNELS_LIST != null) {
+            String[] channels = CHANNELS_LIST.split(",");
+            for (String channel : channels) {
+                if (channel.startsWith("#")) {
+                    res.add(channel);
+                }
+            }
+        }
+        return res.isEmpty() ? DEFAULT_CHANNELS : res;
     }
 }
