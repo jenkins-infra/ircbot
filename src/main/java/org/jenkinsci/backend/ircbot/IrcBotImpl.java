@@ -123,6 +123,12 @@ public class IrcBotImpl extends PircBot {
             forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3));
             return;
         }
+        
+        m = Pattern.compile("rename (?:github )repo (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            renameGitHubRepo(channel, sender, m.group(1), m.group(2));
+            return;
+        }
 
         m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
@@ -258,11 +264,15 @@ public class IrcBotImpl extends PircBot {
      * IOW, does he have a voice of a channel operator?
      */
     private boolean isSenderAuthorized(String channel, String sender) {
+        return isSenderAuthorized(channel, sender, true);
+    }
+    
+    private boolean isSenderAuthorized(String channel, String sender, boolean acceptVoice) {
         for (User u : getUsers(channel)) {
             System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
-                if (p.contains("@") || p.contains("+"))
+                if (p.contains("@") || (acceptVoice && p.contains("+")))
                     return true;
             }
         }
@@ -304,7 +314,12 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void insufficientPermissionError(String channel) {
-        sendMessage(channel,"Only people with + or @ can run this command.");
+        insufficientPermissionError(channel, true);
+    }
+    
+    private void insufficientPermissionError(String channel, boolean acceptVoice ) {
+        final String requiredPrefix = acceptVoice ? "+ or @" : "@";
+        sendMessage(channel,"Only people with "+requiredPrefix+" can run this command.");
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
         sendRawLine("NAMES " + channel);
         sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
@@ -519,6 +534,31 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
+    private void renameGitHubRepo(String channel, String sender, String repo, String newName) {
+        try {
+            if (!isSenderAuthorized(channel, sender, false)) {
+                insufficientPermissionError(channel, false);
+                return;
+            }
+            sendMessage(channel, "Renaming " + repo + " to " + newName);
+
+            GitHub github = GitHub.connect();
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            GHRepository orig = o.getRepository(repo);
+            if (orig == null) {
+                sendMessage(channel, "No such repository: " + repo);
+                return;
+            }
+
+            orig.renameTo(newName);
+            sendMessage(channel, "The repository has been renamed: https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION+"/"+newName);
+        } catch (IOException e) {
+            sendMessage(channel, "Failed to rename a repository: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
     /**
      * @param newName
      *      If not null, rename a epository after a fork.
