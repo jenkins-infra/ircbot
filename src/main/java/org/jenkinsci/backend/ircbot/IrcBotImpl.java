@@ -195,7 +195,13 @@ public class IrcBotImpl extends PircBot {
             removeAutoVoice(channel,sender,m.group(1));
             return;
         }
-              
+
+        m = Pattern.compile("(?:kick) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            kickUser(channel,sender,m.group(1));
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -221,6 +227,16 @@ public class IrcBotImpl extends PircBot {
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
         }
+    }
+
+    private void kickUser(String channel, String sender, String target) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        kick(channel, target);
+        sendMessage(channel, "Kicked user" + target);
     }
 
     private void replyBugStatus(String channel, String ticket) {
