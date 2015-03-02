@@ -9,4 +9,4 @@ RUN cd /usr/local/bin; unzip ircbot.zip
 EXPOSE 8080
 USER ircbot
 
-ENTRYPOINT java -Dircbot.name=jenkins-admin -jar /usr/local/bin/ircbot-1.0-SNAPSHOT.jar
+ENTRYPOINT ["java", "-Dircbot.name=jenkins-admin", "-jar", "/usr/local/bin/ircbot-1.0-SNAPSHOT.jar"]
