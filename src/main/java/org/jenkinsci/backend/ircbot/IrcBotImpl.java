@@ -217,6 +217,10 @@ public class IrcBotImpl extends PircBot {
             sendRawLine("NAMES " + channel);
             return;
         }
+        
+        if (payload.equalsIgnoreCase("restart")) {
+            restart(channel,sender);
+        }
 
         sendMessage(channel,"I didn't understand the command");
 
@@ -227,6 +231,23 @@ public class IrcBotImpl extends PircBot {
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Restart ircbot.
+     * 
+     * We just need to quit, and docker container manager will automatically restart
+     * another one. We've seen for some reasons sometimes jenkins-admin loses its +o flag,
+     * and when that happens a restart fixes it quickly.
+     */
+    private void restart(String channel, String sender) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+        
+        sendMessage(channel,"I'll quit and come back");
+        System.exit(0);
     }
 
     private void kickUser(String channel, String sender, String target) {
