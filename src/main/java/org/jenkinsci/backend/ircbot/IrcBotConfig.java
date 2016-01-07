@@ -14,37 +14,37 @@ import javax.annotation.Nonnull;
  * @author Oleg Nenashev <o.v.nenashev@gmail.com>
  */
 public class IrcBotConfig {
-    
+
     private static final String varPrefix = "ircbot.";
-       
+
     // General
     /**
      * Name of the bot (up to 16 symbols).
      */
-    private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name")); 
+    private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name"));
     static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
     static String SERVER = System.getProperty(varPrefix+"server", "irc.freenode.net");
-    static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins","#jenkins-infra"));
-    static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra");
-    
+    static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins", "#jenkins-infra", "#jenkins-community"));
+    static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra,#jenkins-community");
+
     // IRC Hook
-    static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");  
+    static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
     static String IRC_HOOK_PORT = System.getProperty(varPrefix+"ircHook.port", "6667");
     static String IRC_HOOK_NICK = System.getProperty(varPrefix+"ircHook.nick", "github-jenkins");
     static String IRC_HOOK_PASSWORD = System.getProperty(varPrefix+"ircHook.password", "");
     static String IRC_HOOK_ROOM = System.getProperty(varPrefix+"ircHook.room", "#jenkins-commits");
     static String IRC_HOOK_LONG_URL= System.getProperty(varPrefix+"ircHook.longUrl", "1");
-    
+
     // JIRAs
     static String JIRA_DEFAULT_PROJECT = System.getProperty(varPrefix+"jira.defaultProject", "JENKINS");
-    
+
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
     static String GITHUB_DEFAULT_TEAM = System.getProperty(varPrefix+"github.defaultTeam", "Everyone");
     static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
-     
+
     public static Map<String, String> getIRCHookConfig() {
-        
+
         final Map<String, String> ircHookConfig = new TreeMap<String, String>();
         ircHookConfig.put("server", SERVER);
         ircHookConfig.put("port", IRC_HOOK_PORT);
@@ -55,7 +55,7 @@ public class IrcBotConfig {
 
         return Collections.unmodifiableMap(ircHookConfig);
     }
-    
+
     public static @Nonnull Set<String> getChannels() {
         HashSet<String> res = new HashSet<String>();
         if (CHANNELS_LIST != null) {
