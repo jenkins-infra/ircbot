@@ -652,22 +652,6 @@ public class IrcBotImpl extends PircBot {
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
 
-            GHTeam defaultTeam = org.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
-            if (defaultTeam == null) {
-                sendMessage(channel, "Cannot find the default team \""+ IrcBotConfig.GITHUB_DEFAULT_TEAM + 
-                        "\" for" + IrcBotConfig.GITHUB_ORGANIZATION+" organization. The team won't be added to the repo");
-            } else {
-                try {
-                    defaultTeam.add(user);
-                } catch (IOException e) {  // if 'user' is an org, the above command would fail
-                    sendMessage(channel,"Failed to add "+user+" to \""+IrcBotConfig.GITHUB_DEFAULT_TEAM+"\" team. Maybe an org?: "+e.getMessage());
-                    // fall through
-                }
-                
-                // the default group gets access to this new repository, too.
-                defaultTeam.add(r);
-            }
-
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             try {
                 t.add(user);    // the user immediately joins this team
