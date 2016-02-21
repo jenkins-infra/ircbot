@@ -702,7 +702,9 @@ public class IrcBotImpl extends PircBot {
         if (t==null) {
             t = org.createTeam(teamName, Permission.ADMIN, r);
         } else {
-            t.add(r);
+            if (!t.getRepositories().containsValue(r)) {
+                t.add(r);
+            }
         }
         return t;
     }
