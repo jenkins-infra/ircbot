@@ -23,6 +23,8 @@ ${VERSION_FILE} : ${VERSION_FILE_DIR}
 ${VERSION_FILE_DIR} :
 	mkdir ${VERSION_FILE_DIR}
 
+bot: target/ircbot-1.0-SNAPSHOT-bin.zip
+
 image : clean target/ircbot-1.0-SNAPSHOT-bin.zip
 	docker build -t ${IMAGENAME} .
 
@@ -32,10 +34,8 @@ run :
 tag :
 	docker tag ${IMAGENAME} ${IMAGENAME}:${TAG}
 
-push :
-	docker push ${IMAGENAME}
-
 clean:
 	rm -rf target/*
-	rm -f ${VERSION_FILE} 
+	rm -f ${VERSION_FILE}
 
+.PHONY: clean tag run image bot
