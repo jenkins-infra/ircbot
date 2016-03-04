@@ -76,7 +76,7 @@
     <dependency>
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
-      <version>1.59</version>
+      <version>1.73</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci</groupId>
