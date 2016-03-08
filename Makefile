@@ -38,4 +38,7 @@ clean:
 	rm -rf target/*
 	rm -f ${VERSION_FILE}
 
+push:
+	docker push ${IMAGENAME}
+
 .PHONY: clean tag run image bot
