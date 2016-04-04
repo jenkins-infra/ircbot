@@ -29,5 +29,5 @@ Actions:
 [MIT License][3]
    
 [1]: https://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot
-[2]: https://ci.jenkins-ci.org/job/infra_ircbot/
+[2]: https://ci.jenkins-ci.org/view/Infrastructure/job/Containers/job/infra_ircbot/
 [3]: http://www.opensource.org/licenses/mit-license.php
