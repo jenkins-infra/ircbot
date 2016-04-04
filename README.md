@@ -14,9 +14,9 @@ Actions:
  * Go to the [IRC Bot job][2] on https://ci.jenkins-ci.org
  * Wait till the automatic build finishes with a SUCCESS status
 4. Modify the version on Puppet infrastructure
- *  Edit your <b>local fork</b> the following file: https://github.com/jenkins-infra/jenkins-infra/blob/staging/dist/profile/manifests/jenkinsadmin.pp  
- * Change the <code>$tag</code> variable in the <code>class profile::jenkinsadmin</code> class. 
-   * Format: build${JENKINSCI_BUILD_NUMBER}
+ *  Edit your <b>local fork</b> the following file: https://github.com/jenkins-infra/jenkins-infra/blob/staging/hieradata/common.yaml#L94  
+ * Change the `profile::jenkinsadmin::tag` variable.
+   * Format: `build${JENKINSCI_BUILD_NUMBER}`
  * Create a pull request to the main repo. Branch=staging
  * Wait till the merge of the pull request. Write to #jenkins-infra channel to request the review
 5. Wait till the deployment
