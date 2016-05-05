@@ -21,7 +21,7 @@ node('docker') {
     withEnv([
         "BUILD_NUMBER=${env.BUILD_NUMBER}:${shortCommit}",
         "JAVA_HOME=${tool 'jdk8'}",
-        "PATH+MVN=${tool 'mvn'}",
+        "PATH+MVN=${tool 'mvn'}/bin",
     ]) {
         sh 'make bot'
     }
