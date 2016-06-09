@@ -5,8 +5,10 @@ import hudson.plugins.jira.soap.JiraSoapService;
 import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteIssue;
 import hudson.plugins.jira.soap.RemoteStatus;
+import org.apache.axis.AxisFault;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.jira_scraper.ConnectionInfo;
 import org.jenkinsci.jira_scraper.JiraScraper;
 import org.jibble.pircbot.PircBot;
@@ -202,6 +204,16 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:host) (\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            String forkTo = "";
+            if(m.groupCount() > 1) {
+                forkTo = m.group(2);
+            }
+            setupHosting(channel,sender,m.group(1), forkTo);
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -258,6 +270,105 @@ public class IrcBotImpl extends PircBot {
 
         kick(channel, target);
         sendMessage(channel, "Kicked user" + target);
+    }
+
+    private void setupHosting(String channel, String sender, String hostingId, String forkTo) {
+        if (!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        try {
+            JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
+            ConnectionInfo con = new ConnectionInfo();
+            String token = svc.login(con.userName, con.password);
+            RemoteIssue issue = svc.getIssue(token, "HOSTING-" + hostingId);
+
+            String forkFrom = "";
+            List<String> users = new ArrayList<String>();
+
+            String defaultAssignee = issue.getReporter();
+
+            RemoteCustomFieldValue[] customFields = issue.getCustomFieldValues();
+            for(RemoteCustomFieldValue val : customFields) {
+                String fieldId = val.getCustomfieldId();
+                if(fieldId.equalsIgnoreCase("customfield_10320")) {
+                    String[] values = val.getValues();
+                    if(values.length > 0) {
+                        forkFrom = val.getValues()[0];
+                    }
+                }
+
+                if(fieldId.equalsIgnoreCase("customfield_10323")) {
+                    String[] values = val.getValues();
+                    if(values.length > 0) {
+                        String userList = values[0];
+                        for(String u : userList.split("\\n")) {
+                            users.add(u.trim());
+                        }
+                    }
+                }
+
+                if(StringUtils.isBlank(forkTo) && fieldId.equalsIgnoreCase("customfield_10321")) {
+                    String[] values = val.getValues();
+                    if(values.length > 0) {
+                        forkTo = values[0];
+                    }
+                }
+            }
+
+            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.size() == 0) {
+                sendMessage(channel, "Could not retrieve information (or information does not exist) from the HOSTING JIRA");
+                return;
+            }
+
+            // we assume the first person in the list is the "owner"
+            forkGitHub(channel, sender, users.get(0), forkFrom, forkTo);
+
+            // add the users to the repo
+            for(String user : users) {
+                addGitHubCommitter(channel, sender, user, forkTo);
+            }
+
+            // create the JIRA component
+            createComponent(channel, sender, forkTo, defaultAssignee);
+
+            // update the issue with information on next steps
+            String msg = "The code has been forked into the jenkinsci project on GitHub as "
+                    + "https://github.com/jenkinsci/" + forkTo
+                    + "\n\nA JIRA component named " + forkTo + " has also been created with "
+                    + defaultAssignee + " as the default assignee for issues."
+                    + "\n\nPlease remove your original repository so that the jenkinsci repository "
+                    + "is the definitive source for the code. Also, please make sure you have "
+                    + "a wiki page setup with the following guidelines in mind: "
+                    + "https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-CreatingaWikipage"
+                    + "\n\nWelcome aboard!";
+
+            // add comment
+            RemoteComment c = new RemoteComment();
+            c.setBody(msg);
+            svc.addComment(token, "HOSTING-" + hostingId, c);
+
+            // resolve.
+            // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
+            try {
+                // this is apparently the ID for "resolved"
+                svc.progressWorkflowAction(token, "HOSTING-" + hostingId, "5",
+                        new RemoteFieldValue[]{ new RemoteFieldValue("comment", new String[]{"closing comment"})});
+            } catch (AxisFault e) {
+                // if the issue cannot be put into the "resolved" state
+                // (perhaps it's already in that state), let it be. Or else
+                // we end up with the carpet bombing like HUDSON-2552.
+                // See HUDSON-5133 for the failure mode.
+                System.err.println("Failed to mark the issue as resolved");
+                e.printStackTrace();
+            }
+
+            sendMessage(channel, "Hosting setup complete");
+        } catch(Exception e) {
+            e.printStackTrace();
+            sendMessage(channel, "Failed retrieving information from JIRA");
+        }
     }
 
     private void replyBugStatus(String channel, String ticket) {

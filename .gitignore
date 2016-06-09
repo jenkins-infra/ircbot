@@ -7,3 +7,5 @@
 target
 /src/main/resources/versionInfo.properties
 /unknown-commands.txt
+
+.idea/
