@@ -52,7 +52,10 @@ import static java.util.regex.Pattern.*;
  * @author Kohsuke Kawaguchi
  */
 public class IrcBotImpl extends PircBot {
-    
+    private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
+    private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
+    private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+
     /**
      * Records commands that we didn't understand.
      */
@@ -210,7 +213,7 @@ public class IrcBotImpl extends PircBot {
             if(m.groupCount() > 1) {
                 forkTo = m.group(2);
             }
-            setupHosting(channel,sender,m.group(1), forkTo);
+            setupHosting(channel,sender,m.group(1),forkTo);
             return;
         }
 
@@ -292,14 +295,14 @@ public class IrcBotImpl extends PircBot {
             RemoteCustomFieldValue[] customFields = issue.getCustomFieldValues();
             for(RemoteCustomFieldValue val : customFields) {
                 String fieldId = val.getCustomfieldId();
-                if(fieldId.equalsIgnoreCase("customfield_10320")) {
+                if(fieldId.equalsIgnoreCase(FORK_FROM_JIRA_FIELD)) {
                     String[] values = val.getValues();
                     if(values.length > 0) {
                         forkFrom = val.getValues()[0];
                     }
                 }
 
-                if(fieldId.equalsIgnoreCase("customfield_10323")) {
+                if(fieldId.equalsIgnoreCase(USER_LIST_JIRA_FIELD)) {
                     String[] values = val.getValues();
                     if(values.length > 0) {
                         String userList = values[0];
@@ -309,7 +312,7 @@ public class IrcBotImpl extends PircBot {
                     }
                 }
 
-                if(StringUtils.isBlank(forkTo) && fieldId.equalsIgnoreCase("customfield_10321")) {
+                if(StringUtils.isBlank(forkTo) && fieldId.equalsIgnoreCase(FORK_TO_JIRA_FIELD)) {
                     String[] values = val.getValues();
                     if(values.length > 0) {
                         forkTo = values[0];
