@@ -60,6 +60,7 @@ public class IrcBotImpl extends PircBot {
     private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
     private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+    private static final String DONE_JIRA_RESOLUTION_ID = "10000";
 
     /**
      * Records commands that we didn't understand.
@@ -281,7 +282,7 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void setupHosting(String channel, String sender, String hostingId, String forkTo) {
-        if (!isSenderAuthorized(channel, sender)) {
+        if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
         }
@@ -289,8 +290,8 @@ public class IrcBotImpl extends PircBot {
         try {
             JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
             ConnectionInfo con = new ConnectionInfo();
-            String token = svc.login(con.userName, con.password);
-            RemoteIssue issue = svc.getIssue(token, "HOSTING-" + hostingId);
+            String token = svc.login(con.userName,con.password);
+            RemoteIssue issue = svc.getIssue(token,"HOSTING-"+hostingId);
 
             String forkFrom = "";
             List<String> users = new ArrayList<String>();
@@ -326,20 +327,28 @@ public class IrcBotImpl extends PircBot {
             }
 
             if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.size() == 0) {
-                sendMessage(channel, "Could not retrieve information (or information does not exist) from the HOSTING JIRA");
+                sendMessage(channel,"Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
 
             // we assume the first person in the list is the "owner"
-            forkGitHub(channel, sender, users.get(0), forkFrom, forkTo);
+            if(!forkGitHub(channel,sender,users.get(0),forkFrom,forkTo)) {
+                sendMessage(channel,"Hosting request failed to fork repository on Github");
+                return;
+            }
 
             // add the users to the repo
             for(String user : users) {
-                addGitHubCommitter(channel, sender, user, forkTo);
+                if(!addGitHubCommitter(channel,sender,user,forkTo)) {
+                    sendMessage(channel,"Hosting request failed to add "+user+" as committer, continuing anyway");
+                }
             }
 
             // create the JIRA component
-            createComponent(channel, sender, forkTo, defaultAssignee);
+            if(!createComponent(channel,sender,forkTo,defaultAssignee)) {
+                sendMessage(channel,"Hosting request failed to create component "+forkTo+" in JIRA");
+                return;
+            }
 
             // update the issue with information on next steps
             String msg = "The code has been forked into the jenkinsci project on GitHub as "
@@ -355,27 +364,26 @@ public class IrcBotImpl extends PircBot {
             // add comment
             RemoteComment c = new RemoteComment();
             c.setBody(msg);
-            svc.addComment(token, "HOSTING-" + hostingId, c);
+            svc.addComment(token,"HOSTING-"+hostingId,c);
 
-            // resolve.
+            // mark as "done".
             // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
             try {
-                // this is apparently the ID for "resolved"
-                svc.progressWorkflowAction(token, "HOSTING-" + hostingId, "5",
-                        new RemoteFieldValue[]{ new RemoteFieldValue("comment", new String[]{"closing comment"})});
+                svc.progressWorkflowAction(token,"HOSTING-"+hostingId,DONE_JIRA_RESOLUTION_ID,
+                        new RemoteFieldValue[]{ new RemoteFieldValue("comment",new String[]{"closing comment"})});
             } catch (AxisFault e) {
                 // if the issue cannot be put into the "resolved" state
                 // (perhaps it's already in that state), let it be. Or else
                 // we end up with the carpet bombing like HUDSON-2552.
                 // See HUDSON-5133 for the failure mode.
-                System.err.println("Failed to mark the issue as resolved");
+                System.err.println("Failed to mark the issue as Done");
                 e.printStackTrace();
             }
 
-            sendMessage(channel, "Hosting setup complete");
+            sendMessage(channel,"Hosting setup complete");
         } catch(Exception e) {
             e.printStackTrace();
-            sendMessage(channel, "Failed retrieving information from JIRA");
+            sendMessage(channel,"Failed setting up hosting for HOSTING-"+hostingId);
         }
     }
 
@@ -484,22 +492,26 @@ public class IrcBotImpl extends PircBot {
     /**
      * Creates an issue tracker component.
      */
-    private void createComponent(String channel, String sender, String subcomponent, String owner) {
+    private boolean createComponent(String channel, String sender, String subcomponent, String owner) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return;
+            return false;
         }
 
         sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
 
+        boolean result = false;
         try {
             JiraScraper js = new JiraScraper();
             js.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, owner, AssigneeType.COMPONENT_LEAD);
             sendMessage(channel,"New component created");
+            result = true;
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
         }
+
+        return result;
     }
 
     /**
@@ -651,10 +663,11 @@ public class IrcBotImpl extends PircBot {
      * @param justForThisRepo
      *      Null to add to add the default team ("Everyone"), otherwise add him to a team specific repository.
      */
-    private void addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
+    private boolean addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
+        boolean result = false;
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return;
+            return false;
         }
         try {
             GitHub github = GitHub.connect();
@@ -666,7 +679,7 @@ public class IrcBotImpl extends PircBot {
                 GHRepository forThisRepo = o.getRepository(justForThisRepo);
                  if (forThisRepo == null) {
                      sendMessage(channel,"Could not find repository:  "+justForThisRepo);
-                     return;
+                     return false;
                  }
                  t = getOrCreateRepoLocalTeam(o, forThisRepo);
             } else {
@@ -675,7 +688,7 @@ public class IrcBotImpl extends PircBot {
                 
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
-                return;
+                return false;
             }
 
             t.add(c);
@@ -684,10 +697,12 @@ public class IrcBotImpl extends PircBot {
                 successMsg += " for repository " + justForThisRepo;
             }
             sendMessage(channel,successMsg);
+            result = true;
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
+        return result;
     }
 
     private void renameGitHubRepo(String channel, String sender, String repo, String newName) {
@@ -719,11 +734,12 @@ public class IrcBotImpl extends PircBot {
      * @param newName
      *      If not null, rename a epository after a fork.
      */
-    private void forkGitHub(String channel, String sender, String owner, String repo, String newName) {
+    private boolean forkGitHub(String channel, String sender, String owner, String repo, String newName) {
+        boolean result = false;
         try {
             if (!isSenderAuthorized(channel,sender)) {
                 insufficientPermissionError(channel);
-                return;
+                return false;
             }
 
             sendMessage(channel, "Forking "+repo);
@@ -732,12 +748,12 @@ public class IrcBotImpl extends PircBot {
             GHUser user = github.getUser(owner);
             if (user==null) {
                 sendMessage(channel,"No such user: "+owner);
-                return;
+                return false;
             }
             GHRepository orig = user.getRepository(repo);
             if (orig==null) {
                 sendMessage(channel,"No such repository: "+repo);
-                return;
+                return false;
             }
 
             GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
@@ -791,6 +807,7 @@ public class IrcBotImpl extends PircBot {
             for (GHTeam team : legacyTeams)
                 team.remove(r);
 
+            result = true;
         } catch (InterruptedException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
@@ -798,6 +815,8 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
         }
+
+        return result;
     }
 
     /**
