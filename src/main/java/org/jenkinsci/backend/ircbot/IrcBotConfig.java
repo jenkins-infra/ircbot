@@ -28,6 +28,13 @@ public class IrcBotConfig {
     static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins", "#jenkins-infra", "#jenkins-community"));
     static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra,#jenkins-community");
 
+    // Testing
+    /**
+     * Name of the user, for which security checks should be skipped.
+     * @since 2.0-SNAPSHOT
+     */
+    static String TEST_SUPERUSER = System.getProperty(varPrefix+"testSuperUser", null);
+    
     // IRC Hook
     static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
     static String IRC_HOOK_PORT = System.getProperty(varPrefix+"ircHook.port", "6667");

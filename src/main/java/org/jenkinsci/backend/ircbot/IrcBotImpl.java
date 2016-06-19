@@ -414,7 +414,8 @@ public class IrcBotImpl extends PircBot {
             System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
-                if (p.contains("@") || (acceptVoice && p.contains("+")))
+                if (p.contains("@") || (acceptVoice && p.contains("+")) 
+                        || (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender) ))
                     return true;
             }
         }
