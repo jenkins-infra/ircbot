@@ -1,18 +1,12 @@
 package org.jenkinsci.backend.ircbot;
 
 import com.atlassian.jira.rest.client.domain.AssigneeType;
-import hudson.plugins.jira.soap.JiraSoapService;
-import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
 import hudson.plugins.jira.soap.RemoteComment;
 import hudson.plugins.jira.soap.RemoteCustomFieldValue;
 import hudson.plugins.jira.soap.RemoteFieldValue;
-import hudson.plugins.jira.soap.RemoteIssue;
-import hudson.plugins.jira.soap.RemoteStatus;
 import org.apache.axis.AxisFault;
 import org.apache.axis.collections.LRUMap;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.jira_scraper.ConnectionInfo;
 import org.jenkinsci.jira_scraper.JiraScraper;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
@@ -28,23 +22,17 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import javax.xml.rpc.ServiceException;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URL;
-import java.rmi.RemoteException;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -399,28 +387,13 @@ public class IrcBotImpl extends PircBot {
         }
 
         try {
-            sendMessage(channel, getSummary(ticket));
+            sendMessage(channel, JiraHelper.getSummary(ticket));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private String getSummary(String ticket) throws ServiceException, IOException {
-        JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
-        ConnectionInfo con = new ConnectionInfo();
-        String token = svc.login(con.userName, con.password);
-        RemoteIssue issue = svc.getIssue(token, ticket);
-        return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "https://issues.jenkins-ci.org/browse/"+ticket);
-    }
-
-    private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
-        RemoteStatus[] statuses = svc.getStatuses(token);
-        for (RemoteStatus s : statuses)
-            if(s.getId().equals(statusId))
-                return s;
-        return null;
-    }
+    
 
     /**
      * Is the sender respected in the channel?
