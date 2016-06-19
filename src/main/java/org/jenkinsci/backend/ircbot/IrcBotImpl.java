@@ -282,6 +282,8 @@ public class IrcBotImpl extends PircBot {
         }
 
         final String issueID = "HOSTING-" + hostingId;
+        sendMessage(channel, "Approving hosting request " + issueID);
+        replyBugStatus(channel, issueID);
         try {
             final JiraRestClient client = JiraHelper.createJiraClient();
             final IssueRestClient issueClient = client.getIssueClient();
