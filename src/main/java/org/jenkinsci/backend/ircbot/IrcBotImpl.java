@@ -1,9 +1,14 @@
 package org.jenkinsci.backend.ircbot;
 
+import com.atlassian.jira.rest.client.api.IssueRestClient;
+import com.atlassian.jira.rest.client.api.JiraRestClient;
+import com.atlassian.jira.rest.client.api.RestClientException;
+import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.Comment;
+import com.atlassian.jira.rest.client.api.domain.IssueField;
+import com.atlassian.jira.rest.client.api.domain.input.IssueInput;
+import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.jira.rest.client.domain.AssigneeType;
-import hudson.plugins.jira.soap.RemoteComment;
-import hudson.plugins.jira.soap.RemoteCustomFieldValue;
-import hudson.plugins.jira.soap.RemoteFieldValue;
 import org.apache.axis.AxisFault;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.lang.StringUtils;
@@ -34,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,8 +53,8 @@ import static java.util.regex.Pattern.*;
 public class IrcBotImpl extends PircBot {
     private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
-    private static final String DONE_JIRA_RESOLUTION_ID = "10000";
+    private static final String USER_LIST_JIRA_FIELD = "customfield_10323"; 
+    private static final int DONE_JIRA_RESOLUTION_ID = 10000;
 
     /**
      * Records commands that we didn't understand.
@@ -275,31 +281,30 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        final String issueID = "HOSTING-" + hostingId;
         try {
-            JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
-            ConnectionInfo con = new ConnectionInfo();
-            String token = svc.login(con.userName,con.password);
-            RemoteIssue issue = svc.getIssue(token,"HOSTING-"+hostingId);
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final IssueRestClient issueClient = client.getIssueClient();
+            final Issue issue = JiraHelper.getIssue(client, issueID);
 
             String forkFrom = "";
             List<String> users = new ArrayList<String>();
 
-            String defaultAssignee = issue.getReporter();
+            String defaultAssignee = issue.getReporter().getName();
 
-            RemoteCustomFieldValue[] customFields = issue.getCustomFieldValues();
-            for(RemoteCustomFieldValue val : customFields) {
-                String fieldId = val.getCustomfieldId();
+            for(IssueField val : issue.getFields()) {
+                String fieldId = val.getId();
                 if(fieldId.equalsIgnoreCase(FORK_FROM_JIRA_FIELD)) {
-                    String[] values = val.getValues();
-                    if(values.length > 0) {
-                        forkFrom = val.getValues()[0];
+                    Object _value = val.getValue();
+                    if(_value != null) {
+                        forkFrom = _value.toString();
                     }
                 }
 
                 if(fieldId.equalsIgnoreCase(USER_LIST_JIRA_FIELD)) {
-                    String[] values = val.getValues();
-                    if(values.length > 0) {
-                        String userList = values[0];
+                    Object _value = val.getValue();
+                    if(_value != null) {
+                        String userList = _value.toString();
                         for(String u : userList.split("\\n")) {
                             users.add(u.trim());
                         }
@@ -307,9 +312,9 @@ public class IrcBotImpl extends PircBot {
                 }
 
                 if(StringUtils.isBlank(forkTo) && fieldId.equalsIgnoreCase(FORK_TO_JIRA_FIELD)) {
-                    String[] values = val.getValues();
-                    if(values.length > 0) {
-                        forkTo = values[0];
+                    Object _value = val.getValue();
+                    if(_value != null) {
+                        forkTo = _value.toString();
                     }
                 }
             }
@@ -350,16 +355,16 @@ public class IrcBotImpl extends PircBot {
                     + "\n\nWelcome aboard!";
 
             // add comment
-            RemoteComment c = new RemoteComment();
-            c.setBody(msg);
-            svc.addComment(token,"HOSTING-"+hostingId,c);
+            issueClient.addComment(issue.getSelf(), Comment.valueOf(msg)).
+                    get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             // mark as "done".
             // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
             try {
-                svc.progressWorkflowAction(token,"HOSTING-"+hostingId,DONE_JIRA_RESOLUTION_ID,
-                        new RemoteFieldValue[]{ new RemoteFieldValue("comment",new String[]{"closing comment"})});
-            } catch (AxisFault e) {
+                //TODO: Better message
+                Comment closingComment = Comment.valueOf("closing comment");
+                issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
+            } catch (RestClientException e) {
                 // if the issue cannot be put into the "resolved" state
                 // (perhaps it's already in that state), let it be. Or else
                 // we end up with the carpet bombing like HUDSON-2552.

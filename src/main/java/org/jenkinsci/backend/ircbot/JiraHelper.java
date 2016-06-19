@@ -65,6 +65,12 @@ class JiraHelper {
         return client;
     }
     
+    @Nonnull
+    static Issue getIssue(JiraRestClient client, String ticket) 
+            throws ExecutionException, TimeoutException, InterruptedException {
+        return client.getIssueClient().getIssue(ticket).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+    
     /**
      * Gets issue summary string.
      * @param ticket Ticket to be retrieved
