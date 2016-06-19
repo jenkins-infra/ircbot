@@ -1,5 +1,6 @@
 package org.jenkinsci.backend.ircbot;
 
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
@@ -36,7 +37,17 @@ public class IrcBotConfig {
     static String IRC_HOOK_LONG_URL= System.getProperty(varPrefix+"ircHook.longUrl", "1");
 
     // JIRAs
+    /**
+     * Specifies target JIRA URL.
+     * @since 2.0-SNAPSHOT
+     */
+    static String JIRA_URL = System.getProperty(varPrefix+"jira.url", "https://issues.jenkins-ci.org");
     static String JIRA_DEFAULT_PROJECT = System.getProperty(varPrefix+"jira.defaultProject", "JENKINS");
+    /**
+     * Specifies timeout for JIRA requests (in seconds).
+     * @since 2.0-SNAPSHOT
+     */
+    static int JIRA_TIMEOUT_SEC = Integer.getInteger(varPrefix+"jira.requestTimeout", 30);
 
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
