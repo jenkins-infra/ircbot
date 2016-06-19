@@ -326,9 +326,15 @@ public class IrcBotImpl extends PircBot {
                 return;
             }
 
-            // we assume the first person in the list is the "owner"
-            if(!forkGitHub(channel,sender,users.get(0),forkFrom,forkTo)) {
-                sendMessage(channel,"Hosting request failed to fork repository on Github");
+            // Parse forkFrom in order to determine original repo owner and repo name
+            Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
+            if (m.matches()) {
+                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo)) {
+                    sendMessage(channel,"Hosting request failed to fork repository on Github");
+                    return;
+                }
+            } else {
+                sendMessage(channel, "ERROR: Cannot parse repo " + forkFrom);
                 return;
             }
 
