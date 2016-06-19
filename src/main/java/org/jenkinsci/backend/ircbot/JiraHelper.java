@@ -52,16 +52,8 @@ class JiraHelper {
     @Nonnull
     static JiraRestClient createJiraClient() throws IOException {
         ConnectionInfo con = new ConnectionInfo();
-        
-        final URI uri;
-        try {
-            uri = new URI(IrcBotConfig.JIRA_URL); 
-        } catch(URISyntaxException ex) {
-            throw new IOException("Cannot create JIRA URI from string " + IrcBotConfig.JIRA_URL, ex);
-        }
-        
         JiraRestClient client = new AsynchronousJiraRestClientFactory().createWithBasicHttpAuthentication(
-                uri, con.userName, con.password);
+                IrcBotConfig.JIRA_URI, con.userName, con.password);
         return client;
     }
     
@@ -79,17 +71,5 @@ class JiraHelper {
         return String.format("%s:%s (%s) %s",
                 issue.getKey(), issue.getSummary(), issue.getStatus().getName(), 
                 IrcBotConfig.JIRA_URL + "/browse/"+ticket);
-    }
-
-    @CheckForNull
-    private static Status findStatus(JiraRestClient client, Long statusId) 
-            throws TimeoutException, ExecutionException, InterruptedException {
-        Iterable<Status> statuses = client.getMetadataClient().getStatuses().get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
-        for (Status s : statuses) {
-            if(s.getId().equals(statusId)) {
-                return s;
-            }
-        }
-        return null;
     }
 }

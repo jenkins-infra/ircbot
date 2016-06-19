@@ -1,7 +1,6 @@
 package org.jenkinsci.backend.ircbot;
 
 import com.atlassian.jira.rest.client.domain.AssigneeType;
-import org.apache.axis.collections.LRUMap;
 import org.jenkinsci.jira_scraper.JiraScraper;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
@@ -25,6 +24,7 @@ import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -49,7 +49,7 @@ public class IrcBotImpl extends PircBot {
      * Used so that we don't repeatedly mention the same issues.
      */
     @SuppressWarnings("unchecked")
-    private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
+    private final Map<String,Long> recentIssues = Collections.<String,Long>synchronizedMap(new HashMap<String,Long>(10));
 
     public IrcBotImpl(File unknownCommands) {
         setName(IrcBotConfig.NAME);
