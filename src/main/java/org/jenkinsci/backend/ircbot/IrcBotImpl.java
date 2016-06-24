@@ -31,6 +31,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -365,15 +366,16 @@ public class IrcBotImpl extends PircBot {
                     + "\n\nWelcome aboard!";
 
             // add comment
-            issueClient.addComment(issue.getSelf(), Comment.valueOf("test msg")).
+            issueClient.addComment(new URI(issue.getSelf().toString() + "/comment"), Comment.valueOf(msg)).
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             // mark as "done".
             // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
             try {
                 //TODO: Better message
-                Comment closingComment = Comment.valueOf("closing comment");
-                issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
+                Comment closingComment = Comment.valueOf("Marking the issue as Done");
+                Promise<Void> transition = issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
+                JiraHelper.wait(transition);
             } catch (RestClientException e) {
                 // if the issue cannot be put into the "resolved" state
                 // (perhaps it's already in that state), let it be. Or else
@@ -386,7 +388,7 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"Hosting setup complete");
         } catch(Exception e) {
             e.printStackTrace();
-            sendMessage(channel,"Failed setting up hosting for HOSTING-"+hostingId);
+            sendMessage(channel,"Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
         }
     }
 
