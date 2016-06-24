@@ -209,7 +209,7 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
-        m = Pattern.compile("(?:host) (\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:host) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             String forkTo = "";
             if(m.groupCount() > 1) {
@@ -365,7 +365,7 @@ public class IrcBotImpl extends PircBot {
                     + "\n\nWelcome aboard!";
 
             // add comment
-            issueClient.addComment(issue.getSelf(), Comment.valueOf(msg)).
+            issueClient.addComment(issue.getSelf(), Comment.valueOf("test msg")).
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             // mark as "done".
@@ -487,7 +487,8 @@ public class IrcBotImpl extends PircBot {
             return false;
         }
 
-        sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
+        sendMessage(channel,String.format("Adding a new JIRA subcomponent %s to the %s project, owned by %s",
+                subcomponent, IrcBotConfig.JIRA_DEFAULT_PROJECT, owner));
 
         boolean result = false;
         try {
@@ -496,7 +497,7 @@ public class IrcBotImpl extends PircBot {
                     new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
             final Component component = JiraHelper.wait(createComponent);
             component.getSelf();
-            sendMessage(channel,"New component created. ID is " + component.getId());
+            sendMessage(channel,"New component created. URL is " + component.getSelf().toURL());
             result = true;
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
