@@ -81,17 +81,10 @@
       <type>jar</type>
     </dependency>
     <dependency>
-      <groupId>org.apache.axis</groupId>
-      <artifactId>axis</artifactId>
-      <version>1.4</version>
-      <type>jar</type>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.13-SNAPSHOT</version>
+      <version>4.12</version>
       <scope>test</scope>
-      <type>jar</type>
     </dependency>
   </dependencies>
 

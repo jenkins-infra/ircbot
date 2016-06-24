@@ -5,17 +5,13 @@ import com.atlassian.jira.rest.client.api.IssueRestClient;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.RestClientException;
 import com.atlassian.jira.rest.client.api.domain.AssigneeType;
-import com.atlassian.jira.rest.client.api.domain.BasicComponent;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Component;
 import com.atlassian.jira.rest.client.api.domain.IssueField;
 import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
-import com.atlassian.jira.rest.client.api.domain.input.IssueInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
-import org.apache.axis.AxisFault;
-import org.apache.axis.collections.LRUMap;
 import org.apache.commons.lang.StringUtils;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
@@ -41,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -71,7 +68,7 @@ public class IrcBotImpl extends PircBot {
      * Used so that we don't repeatedly mention the same issues.
      */
     @SuppressWarnings("unchecked")
-    private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
+    private final Map<String,Long> recentIssues = Collections.<String,Long>synchronizedMap(new HashMap<String,Long>(10));
 
     public IrcBotImpl(File unknownCommands) {
         setName(IrcBotConfig.NAME);
