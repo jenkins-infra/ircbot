@@ -24,9 +24,13 @@
 package org.jenkinsci.backend.ircbot;
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
+import com.atlassian.jira.rest.client.api.domain.BasicComponent;
+import com.atlassian.jira.rest.client.api.domain.Component;
 import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.Project;
 import com.atlassian.jira.rest.client.api.domain.Status;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousJiraRestClientFactory;
+import com.atlassian.util.concurrent.Promise;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -35,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import org.jenkinsci.jira_scraper.ConnectionInfo;
+import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
 
 /**
  * Provides helper methods for JIRA access.
@@ -65,10 +69,44 @@ class JiraHelper {
         return client;
     }
     
+    /**
+     * Waits till the completion of the synchronized command.
+     * @param <T> Type of the promise
+     * @param promise Ongoing operation
+     * @return Operation result
+     * @throws InterruptedException Operation interrupted externally
+     * @throws ExecutionException Execution failure
+     * @throws TimeoutException Timeout (configured by {@link IrcBotConfig#JIRA_TIMEOUT_SEC}) 
+     */
+    @Nonnull
+    static <T> T wait(Promise<T> promise) 
+            throws InterruptedException, ExecutionException, TimeoutException {
+        return promise.get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+    
     @Nonnull
     static Issue getIssue(JiraRestClient client, String ticket) 
             throws ExecutionException, TimeoutException, InterruptedException {
         return client.getIssueClient().getIssue(ticket).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+    
+    @Nonnull
+    static BasicComponent getBasicComponent(JiraRestClient client, String projectId, String componentName) 
+            throws ExecutionException, TimeoutException, InterruptedException, IOException {
+        Project project = wait(client.getProjectClient().getProject(projectId));
+        for (BasicComponent component : project.getComponents()) {
+            if (component.getName().equals(componentName)) {
+                return component;
+            }
+        }
+        throw new IOException("Unable to find component " + componentName + " in the " + projectId + " issue tracker");
+    }
+    
+    @Nonnull
+    static Component getComponent(JiraRestClient client, String projectName, String componentName) 
+            throws ExecutionException, TimeoutException, InterruptedException, IOException {
+        BasicComponent bc = getBasicComponent(client, projectName, componentName);
+        return wait(client.getComponentClient().getComponent(bc.getSelf()));
     }
     
     /**
@@ -86,7 +124,7 @@ class JiraHelper {
                 issue.getKey(), issue.getSummary(), issue.getStatus().getName(), 
                 IrcBotConfig.JIRA_URL + "/browse/"+ticket);
     }
-
+    
     @CheckForNull
     private static Status findStatus(JiraRestClient client, Long statusId) 
             throws TimeoutException, ExecutionException, InterruptedException {

@@ -1,18 +1,22 @@
 package org.jenkinsci.backend.ircbot;
 
+import com.atlassian.jira.rest.client.api.ComponentRestClient;
 import com.atlassian.jira.rest.client.api.IssueRestClient;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.RestClientException;
+import com.atlassian.jira.rest.client.api.domain.AssigneeType;
+import com.atlassian.jira.rest.client.api.domain.BasicComponent;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Comment;
+import com.atlassian.jira.rest.client.api.domain.Component;
 import com.atlassian.jira.rest.client.api.domain.IssueField;
+import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.IssueInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
-import com.atlassian.jira.rest.client.domain.AssigneeType;
+import com.atlassian.util.concurrent.Promise;
 import org.apache.axis.AxisFault;
 import org.apache.axis.collections.LRUMap;
 import org.apache.commons.lang.StringUtils;
-import org.jenkinsci.jira_scraper.JiraScraper;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
 import org.kohsuke.github.GHEvent;
@@ -44,6 +48,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.regex.Pattern.*;
+import javax.annotation.CheckForNull;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -489,9 +494,12 @@ public class IrcBotImpl extends PircBot {
 
         boolean result = false;
         try {
-            JiraScraper js = new JiraScraper();
-            js.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, owner, AssigneeType.COMPONENT_LEAD);
-            sendMessage(channel,"New component created");
+            final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
+            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, 
+                    new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
+            final Component component = JiraHelper.wait(createComponent);
+            component.getSelf();
+            sendMessage(channel,"New component created. ID is " + component.getId());
             result = true;
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
@@ -513,8 +521,13 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Renaming subcomponent %s to %s", oldName, newName));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.renameComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName, newName);
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
+            final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
+            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
+                    new ComponentInput(newName, component.getDescription(), component.getLead().getName(), 
+                            component.getAssigneeInfo().getAssigneeType()));
+            JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component has been renamed");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -534,8 +547,11 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Deleting the subcomponent %s. All issues will be moved to %s", deletedComponent, backupComponent));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.deleteComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent, backupComponent);
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent);
+            final Component componentBackup = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, backupComponent);
+            Promise<Void> removeComponent = client.getComponentClient().removeComponent(component.getSelf(), componentBackup.getSelf());
+            JiraHelper.wait(removeComponent);
             sendMessage(channel,"The component has been deleted");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -554,7 +570,7 @@ public class IrcBotImpl extends PircBot {
      * Creates an issue tracker component.
      * @param owner User ID or null if the owner should be removed 
      */
-    private void setDefaultAssignee(String channel, String sender, String subcomponent, String owner) {
+    private void setDefaultAssignee(String channel, String sender, String subcomponent, @CheckForNull String owner) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
@@ -563,14 +579,13 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
         
         try {
-            JiraScraper js = new JiraScraper();
-            if (owner != null) {
-                js.setDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD, owner);
-                sendMessage(channel,"Default assignee set to " + owner);
-            } else {
-                js.removeDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD);
-                sendMessage(channel,"Default assignee has been removed");
-            }
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
+                    new ComponentInput(component.getName(), component.getDescription(), 
+                            owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
+            JiraHelper.wait(updateComponent);
+            sendMessage(channel, owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
         } catch (Exception e) {
             sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
@@ -581,7 +596,7 @@ public class IrcBotImpl extends PircBot {
      * Sets the component description.
      * @param description Component description. Use null to remove the description
      */
-    private void setComponentDescription(String channel, String sender, String componentName, String description) {
+    private void setComponentDescription(String channel, String sender, String componentName, @CheckForNull String description) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
@@ -590,8 +605,13 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Updating the description of component %s", componentName));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.setComponentDescription(IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName, description);        
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName);
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
+                    new ComponentInput(component.getName(),
+                            description != null ? description : "",
+                            component.getAssigneeInfo().getAssignee().getName(), AssigneeType.COMPONENT_LEAD));
+            JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component description has been " + (description != null ? "updated" : "removed"));
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
