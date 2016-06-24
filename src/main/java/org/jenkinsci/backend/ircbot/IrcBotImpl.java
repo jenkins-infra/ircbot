@@ -103,6 +103,31 @@ public class IrcBotImpl extends PircBot {
         while (m.find()) {
             replyBugStatus(channel,"INFRA-"+m.group(1));
         }
+        
+        m = Pattern.compile("(?:website-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"WEBSITE-"+m.group(1));
+        }
+        
+        m = Pattern.compile("(?:hosting-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"HOSTING-"+m.group(1));
+        }
+        
+        m = Pattern.compile("(?:events-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"EVENTS-"+m.group(1));
+        }
+        
+        m = Pattern.compile("(?:ux-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"UX-"+m.group(1));
+        }
+        
+        m = Pattern.compile("(?:test-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
+        while (m.find()) {
+            replyBugStatus(channel,"TEST-"+m.group(1));
+        }
     }
     
     /**
