@@ -27,6 +27,7 @@ import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.BasicComponent;
 import com.atlassian.jira.rest.client.api.domain.Component;
 import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.IssueField;
 import com.atlassian.jira.rest.client.api.domain.Project;
 import com.atlassian.jira.rest.client.api.domain.Status;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousJiraRestClientFactory;
@@ -39,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
 
 /**
@@ -115,5 +117,25 @@ class JiraHelper {
         return String.format("%s:%s (%s) %s",
                 issue.getKey(), issue.getSummary(), issue.getStatus().getName(), 
                 IrcBotConfig.JIRA_URL + "/browse/"+ticket);
+    }
+    
+    @CheckForNull
+    static String getFieldValue(@Nonnull Issue issue, @Nonnull String fieldId) {
+        return getFieldValueOrDefault(issue, fieldId, null);
+    }
+    
+    @Nullable
+    static String getFieldValueOrDefault(@Nonnull Issue issue, @Nonnull String fieldId, @CheckForNull String defaultValue) {
+        String res = defaultValue;
+        for (IssueField val : issue.getFields()) {
+            String thisFieldId = val.getId();
+            if (thisFieldId.equalsIgnoreCase(fieldId)) {
+                Object _value = val.getValue();
+                if (_value != null) {
+                    res = _value.toString();
+                }
+            }
+        }
+        return res;
     }
 }

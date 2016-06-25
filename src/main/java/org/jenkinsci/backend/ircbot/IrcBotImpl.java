@@ -278,7 +278,7 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel, "Kicked user" + target);
     }
 
-    private void setupHosting(String channel, String sender, String hostingId, String forkTo) {
+    private void setupHosting(String channel, String sender, String hostingId, String defaultForkTo) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
@@ -292,39 +292,25 @@ public class IrcBotImpl extends PircBot {
             final IssueRestClient issueClient = client.getIssueClient();
             final Issue issue = JiraHelper.getIssue(client, issueID);
 
-            String forkFrom = "";
             List<String> users = new ArrayList<String>();
 
-            String defaultAssignee = issue.getReporter().getName();
-
-            for(IssueField val : issue.getFields()) {
-                String fieldId = val.getId();
-                if(fieldId.equalsIgnoreCase(FORK_FROM_JIRA_FIELD)) {
-                    Object _value = val.getValue();
-                    if(_value != null) {
-                        forkFrom = _value.toString();
-                    }
-                }
-
-                if(fieldId.equalsIgnoreCase(USER_LIST_JIRA_FIELD)) {
-                    Object _value = val.getValue();
-                    if(_value != null) {
-                        String userList = _value.toString();
-                        for(String u : userList.split("\\n")) {
-                            users.add(u.trim());
-                        }
-                    }
-                }
-
-                if(StringUtils.isBlank(forkTo) && fieldId.equalsIgnoreCase(FORK_TO_JIRA_FIELD)) {
-                    Object _value = val.getValue();
-                    if(_value != null) {
-                        forkTo = _value.toString();
-                    }
-                }
+            final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
+            if (reporter == null) {
+                // It should not be possible in Jenkins JIRA unless the unprobable user deletion case
+                sendMessage(channel, "Warning: Default assignee is not specified in the reporter field. "
+                        + "Component lead won't be set.");
             }
+            String defaultAssignee = reporter != null ? reporter.getName() : "";
 
-            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.size() == 0) {
+            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
+            String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
+            for (String u : userList.split("\\n")) {
+                users.add(u.trim());
+            }
+            String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
+            
+
+            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 sendMessage(channel,"Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
@@ -337,7 +323,7 @@ public class IrcBotImpl extends PircBot {
                     return;
                 }
             } else {
-                sendMessage(channel, "ERROR: Cannot parse repo " + forkFrom);
+                sendMessage(channel, "ERROR: Cannot parse the source repo: " + forkFrom);
                 return;
             }
 
@@ -381,7 +367,8 @@ public class IrcBotImpl extends PircBot {
                 // (perhaps it's already in that state), let it be. Or else
                 // we end up with the carpet bombing like HUDSON-2552.
                 // See HUDSON-5133 for the failure mode.
-                System.err.println("Failed to mark the issue as Done");
+                
+                System.err.println("Failed to mark the issue as Done. " + e.getMessage());
                 e.printStackTrace();
             }
 
@@ -525,8 +512,7 @@ public class IrcBotImpl extends PircBot {
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
             final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
             Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
-                    new ComponentInput(newName, component.getDescription(), component.getLead().getName(), 
-                            component.getAssigneeInfo().getAssigneeType()));
+                    new ComponentInput(newName, null, null, null));
             JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component has been renamed");
         } catch (Exception e) {
@@ -582,8 +568,7 @@ public class IrcBotImpl extends PircBot {
             final JiraRestClient client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
             Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
-                    new ComponentInput(component.getName(), component.getDescription(), 
-                            owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
+                    new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
             JiraHelper.wait(updateComponent);
             sendMessage(channel, owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
         } catch (Exception e) {
@@ -608,9 +593,7 @@ public class IrcBotImpl extends PircBot {
             final JiraRestClient client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName);
             Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
-                    new ComponentInput(component.getName(),
-                            description != null ? description : "",
-                            component.getAssigneeInfo().getAssignee().getName(), AssigneeType.COMPONENT_LEAD));
+                    new ComponentInput(null, description != null ? description : "", null, null));
             JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component description has been " + (description != null ? "updated" : "removed"));
         } catch (Exception e) {
