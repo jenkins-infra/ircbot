@@ -1,7 +1,10 @@
 package org.jenkinsci.backend.ircbot;
 
 import java.io.IOException;
+import java.io.InputStream;
 import junit.framework.TestCase;
+import static org.hamcrest.CoreMatchers.*;
+import static org.junit.Assume.assumeThat;
 import org.jvnet.hudson.test.Issue;
 
 
@@ -29,6 +32,8 @@ public class IrcBotBuildInfoTest extends TestCase {
      */
     @Issue("INFRA-135")
     public void testVersionInfoReal() throws IOException {
+        InputStream istream = IrcBotBuildInfo.class.getResourceAsStream("/versionInfo.properties");      
+        assumeThat("This test is expected to work in https://ci.jenkins-ci.org/job/infra_ircbot/ job only", istream, not(nullValue())); 
         IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("/versionInfo.properties");
         System.out.println(info);
     }

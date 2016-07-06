@@ -1,14 +1,18 @@
 package org.jenkinsci.backend.ircbot;
 
-import com.atlassian.jira.rest.client.domain.AssigneeType;
-import hudson.plugins.jira.soap.JiraSoapService;
-import hudson.plugins.jira.soap.JiraSoapServiceServiceLocator;
-import hudson.plugins.jira.soap.RemoteIssue;
-import hudson.plugins.jira.soap.RemoteStatus;
-import org.apache.axis.collections.LRUMap;
-import org.apache.commons.io.IOUtils;
-import org.jenkinsci.jira_scraper.ConnectionInfo;
-import org.jenkinsci.jira_scraper.JiraScraper;
+import com.atlassian.jira.rest.client.api.ComponentRestClient;
+import com.atlassian.jira.rest.client.api.IssueRestClient;
+import com.atlassian.jira.rest.client.api.JiraRestClient;
+import com.atlassian.jira.rest.client.api.RestClientException;
+import com.atlassian.jira.rest.client.api.domain.AssigneeType;
+import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.Comment;
+import com.atlassian.jira.rest.client.api.domain.Component;
+import com.atlassian.jira.rest.client.api.domain.IssueField;
+import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
+import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
+import com.atlassian.util.concurrent.Promise;
+import org.apache.commons.lang.StringUtils;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
 import org.kohsuke.github.GHEvent;
@@ -23,26 +27,26 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
-import javax.xml.rpc.ServiceException;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.URL;
-import java.rmi.RemoteException;
+import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static java.util.regex.Pattern.*;
+import javax.annotation.CheckForNull;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -50,7 +54,11 @@ import static java.util.regex.Pattern.*;
  * @author Kohsuke Kawaguchi
  */
 public class IrcBotImpl extends PircBot {
-    
+    private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
+    private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
+    private static final String USER_LIST_JIRA_FIELD = "customfield_10323"; 
+    private static final int DONE_JIRA_RESOLUTION_ID = 10000;
+
     /**
      * Records commands that we didn't understand.
      */
@@ -61,7 +69,7 @@ public class IrcBotImpl extends PircBot {
      * Used so that we don't repeatedly mention the same issues.
      */
     @SuppressWarnings("unchecked")
-    private final Map<String,Long> recentIssues = Collections.synchronizedMap(new LRUMap(10));
+    private final Map<String,Long> recentIssues = Collections.<String,Long>synchronizedMap(new HashMap<String,Long>(10));
 
     public IrcBotImpl(File unknownCommands) {
         setName(IrcBotConfig.NAME);
@@ -202,6 +210,16 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:host) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            String forkTo = "";
+            if(m.groupCount() > 1) {
+                forkTo = m.group(2);
+            }
+            setupHosting(channel,sender,m.group(1),forkTo);
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -260,6 +278,107 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel, "Kicked user" + target);
     }
 
+    private void setupHosting(String channel, String sender, String hostingId, String defaultForkTo) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        final String issueID = "HOSTING-" + hostingId;
+        sendMessage(channel, "Approving hosting request " + issueID);
+        replyBugStatus(channel, issueID);
+        try {
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final IssueRestClient issueClient = client.getIssueClient();
+            final Issue issue = JiraHelper.getIssue(client, issueID);
+
+            List<String> users = new ArrayList<String>();
+
+            final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
+            if (reporter == null) {
+                // It should not be possible in Jenkins JIRA unless the unprobable user deletion case
+                sendMessage(channel, "Warning: Default assignee is not specified in the reporter field. "
+                        + "Component lead won't be set.");
+            }
+            String defaultAssignee = reporter != null ? reporter.getName() : "";
+
+            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
+            String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
+            for (String u : userList.split("\\n")) {
+                users.add(u.trim());
+            }
+            String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
+            
+
+            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
+                sendMessage(channel,"Could not retrieve information (or information does not exist) from the HOSTING JIRA");
+                return;
+            }
+
+            // Parse forkFrom in order to determine original repo owner and repo name
+            Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
+            if (m.matches()) {
+                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo)) {
+                    sendMessage(channel,"Hosting request failed to fork repository on Github");
+                    return;
+                }
+            } else {
+                sendMessage(channel, "ERROR: Cannot parse the source repo: " + forkFrom);
+                return;
+            }
+
+            // add the users to the repo
+            for(String user : users) {
+                if(!addGitHubCommitter(channel,sender,user,forkTo)) {
+                    sendMessage(channel,"Hosting request failed to add "+user+" as committer, continuing anyway");
+                }
+            }
+
+            // create the JIRA component
+            if(!createComponent(channel,sender,forkTo,defaultAssignee)) {
+                sendMessage(channel,"Hosting request failed to create component "+forkTo+" in JIRA");
+                return;
+            }
+
+            // update the issue with information on next steps
+            String msg = "The code has been forked into the jenkinsci project on GitHub as "
+                    + "https://github.com/jenkinsci/" + forkTo
+                    + "\n\nA JIRA component named " + forkTo + " has also been created with "
+                    + defaultAssignee + " as the default assignee for issues."
+                    + "\n\nPlease remove your original repository so that the jenkinsci repository "
+                    + "is the definitive source for the code. Also, please make sure you have "
+                    + "a wiki page setup with the following guidelines in mind: "
+                    + "https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-CreatingaWikipage"
+                    + "\n\nWelcome aboard!";
+
+            // add comment
+            issueClient.addComment(new URI(issue.getSelf().toString() + "/comment"), Comment.valueOf(msg)).
+                    get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
+
+            // mark as "done".
+            // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
+            try {
+                //TODO: Better message
+                Comment closingComment = Comment.valueOf("Marking the issue as Done");
+                Promise<Void> transition = issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
+                JiraHelper.wait(transition);
+            } catch (RestClientException e) {
+                // if the issue cannot be put into the "resolved" state
+                // (perhaps it's already in that state), let it be. Or else
+                // we end up with the carpet bombing like HUDSON-2552.
+                // See HUDSON-5133 for the failure mode.
+                
+                System.err.println("Failed to mark the issue as Done. " + e.getMessage());
+                e.printStackTrace();
+            }
+
+            sendMessage(channel,"Hosting setup complete");
+        } catch(Exception e) {
+            e.printStackTrace();
+            sendMessage(channel,"Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
+        }
+    }
+
     private void replyBugStatus(String channel, String ticket) {
         Long time = recentIssues.get(ticket);
 
@@ -272,28 +391,13 @@ public class IrcBotImpl extends PircBot {
         }
 
         try {
-            sendMessage(channel, getSummary(ticket));
+            sendMessage(channel, JiraHelper.getSummary(ticket));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private String getSummary(String ticket) throws ServiceException, IOException {
-        JiraSoapService svc = new JiraSoapServiceServiceLocator().getJirasoapserviceV2(new URL("http://issues.jenkins-ci.org/rpc/soap/jirasoapservice-v2"));
-        ConnectionInfo con = new ConnectionInfo();
-        String token = svc.login(con.userName, con.password);
-        RemoteIssue issue = svc.getIssue(token, ticket);
-        return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), findStatus(svc,token,issue.getStatus()).getName(), "https://issues.jenkins-ci.org/browse/"+ticket);
-    }
-
-    private RemoteStatus findStatus(JiraSoapService svc, String token, String statusId) throws RemoteException {
-        RemoteStatus[] statuses = svc.getStatuses(token);
-        for (RemoteStatus s : statuses)
-            if(s.getId().equals(statusId))
-                return s;
-        return null;
-    }
+    
 
     /**
      * Is the sender respected in the channel?
@@ -309,7 +413,8 @@ public class IrcBotImpl extends PircBot {
             System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
-                if (p.contains("@") || (acceptVoice && p.contains("+")))
+                if (p.contains("@") || (acceptVoice && p.contains("+")) 
+                        || (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender) ))
                     return true;
             }
         }
@@ -365,22 +470,30 @@ public class IrcBotImpl extends PircBot {
     /**
      * Creates an issue tracker component.
      */
-    private void createComponent(String channel, String sender, String subcomponent, String owner) {
+    private boolean createComponent(String channel, String sender, String subcomponent, String owner) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return;
+            return false;
         }
 
-        sendMessage(channel,String.format("Adding a new subcomponent %s to the bug tracker, owned by %s",subcomponent,owner));
+        sendMessage(channel,String.format("Adding a new JIRA subcomponent %s to the %s project, owned by %s",
+                subcomponent, IrcBotConfig.JIRA_DEFAULT_PROJECT, owner));
 
+        boolean result = false;
         try {
-            JiraScraper js = new JiraScraper();
-            js.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, owner, AssigneeType.COMPONENT_LEAD);
-            sendMessage(channel,"New component created");
+            final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
+            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, 
+                    new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
+            final Component component = JiraHelper.wait(createComponent);
+            component.getSelf();
+            sendMessage(channel,"New component created. URL is " + component.getSelf().toURL());
+            result = true;
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
         }
+
+        return result;
     }
 
     /**
@@ -395,8 +508,12 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Renaming subcomponent %s to %s", oldName, newName));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.renameComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName, newName);
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
+            final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
+            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
+                    new ComponentInput(newName, null, null, null));
+            JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component has been renamed");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -416,8 +533,11 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Deleting the subcomponent %s. All issues will be moved to %s", deletedComponent, backupComponent));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.deleteComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent, backupComponent);
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent);
+            final Component componentBackup = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, backupComponent);
+            Promise<Void> removeComponent = client.getComponentClient().removeComponent(component.getSelf(), componentBackup.getSelf());
+            JiraHelper.wait(removeComponent);
             sendMessage(channel,"The component has been deleted");
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -436,7 +556,7 @@ public class IrcBotImpl extends PircBot {
      * Creates an issue tracker component.
      * @param owner User ID or null if the owner should be removed 
      */
-    private void setDefaultAssignee(String channel, String sender, String subcomponent, String owner) {
+    private void setDefaultAssignee(String channel, String sender, String subcomponent, @CheckForNull String owner) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
@@ -445,14 +565,12 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
         
         try {
-            JiraScraper js = new JiraScraper();
-            if (owner != null) {
-                js.setDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD, owner);
-                sendMessage(channel,"Default assignee set to " + owner);
-            } else {
-                js.removeDefaultAssignee(IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent, AssigneeType.COMPONENT_LEAD);
-                sendMessage(channel,"Default assignee has been removed");
-            }
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
+                    new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
+            JiraHelper.wait(updateComponent);
+            sendMessage(channel, owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
         } catch (Exception e) {
             sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
@@ -463,7 +581,7 @@ public class IrcBotImpl extends PircBot {
      * Sets the component description.
      * @param description Component description. Use null to remove the description
      */
-    private void setComponentDescription(String channel, String sender, String componentName, String description) {
+    private void setComponentDescription(String channel, String sender, String componentName, @CheckForNull String description) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
@@ -472,8 +590,11 @@ public class IrcBotImpl extends PircBot {
         sendMessage(channel,String.format("Updating the description of component %s", componentName));
 
         try {
-            JiraScraper js = new JiraScraper();
-            js.setComponentDescription(IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName, description);        
+            final JiraRestClient client = JiraHelper.createJiraClient();
+            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName);
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
+                    new ComponentInput(null, description != null ? description : "", null, null));
+            JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component description has been " + (description != null ? "updated" : "removed"));
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
@@ -532,10 +653,11 @@ public class IrcBotImpl extends PircBot {
      * @param justForThisRepo
      *      Null to add to add the default team ("Everyone"), otherwise add him to a team specific repository.
      */
-    private void addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
+    private boolean addGitHubCommitter(String channel, String sender, String collaborator, String justForThisRepo) {
+        boolean result = false;
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return;
+            return false;
         }
         try {
             GitHub github = GitHub.connect();
@@ -547,7 +669,7 @@ public class IrcBotImpl extends PircBot {
                 GHRepository forThisRepo = o.getRepository(justForThisRepo);
                  if (forThisRepo == null) {
                      sendMessage(channel,"Could not find repository:  "+justForThisRepo);
-                     return;
+                     return false;
                  }
                  t = getOrCreateRepoLocalTeam(o, forThisRepo);
             } else {
@@ -556,7 +678,7 @@ public class IrcBotImpl extends PircBot {
                 
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
-                return;
+                return false;
             }
 
             t.add(c);
@@ -565,10 +687,12 @@ public class IrcBotImpl extends PircBot {
                 successMsg += " for repository " + justForThisRepo;
             }
             sendMessage(channel,successMsg);
+            result = true;
         } catch (IOException e) {
             sendMessage(channel,"Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
+        return result;
     }
 
     private void renameGitHubRepo(String channel, String sender, String repo, String newName) {
@@ -600,11 +724,12 @@ public class IrcBotImpl extends PircBot {
      * @param newName
      *      If not null, rename a epository after a fork.
      */
-    private void forkGitHub(String channel, String sender, String owner, String repo, String newName) {
+    private boolean forkGitHub(String channel, String sender, String owner, String repo, String newName) {
+        boolean result = false;
         try {
             if (!isSenderAuthorized(channel,sender)) {
                 insufficientPermissionError(channel);
-                return;
+                return false;
             }
 
             sendMessage(channel, "Forking "+repo);
@@ -613,12 +738,12 @@ public class IrcBotImpl extends PircBot {
             GHUser user = github.getUser(owner);
             if (user==null) {
                 sendMessage(channel,"No such user: "+owner);
-                return;
+                return false;
             }
             GHRepository orig = user.getRepository(repo);
             if (orig==null) {
                 sendMessage(channel,"No such repository: "+repo);
-                return;
+                return false;
             }
 
             GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
@@ -672,6 +797,7 @@ public class IrcBotImpl extends PircBot {
             for (GHTeam team : legacyTeams)
                 team.remove(r);
 
+            result = true;
         } catch (InterruptedException e) {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
@@ -679,6 +805,8 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,"Failed to fork a repository: "+e.getMessage());
             e.printStackTrace();
         }
+
+        return result;
     }
 
     /**

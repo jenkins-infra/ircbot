@@ -1,11 +1,16 @@
 package org.jenkinsci.backend.ircbot;
 
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 
 /**
@@ -27,6 +32,13 @@ public class IrcBotConfig {
     static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins", "#jenkins-infra", "#jenkins-community"));
     static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra,#jenkins-community");
 
+    // Testing
+    /**
+     * Name of the user, for which security checks should be skipped.
+     * @since 2.0-SNAPSHOT
+     */
+    static String TEST_SUPERUSER = System.getProperty(varPrefix+"testSuperUser", null);
+    
     // IRC Hook
     static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
     static String IRC_HOOK_PORT = System.getProperty(varPrefix+"ircHook.port", "6667");
@@ -36,13 +48,32 @@ public class IrcBotConfig {
     static String IRC_HOOK_LONG_URL= System.getProperty(varPrefix+"ircHook.longUrl", "1");
 
     // JIRAs
+    /**
+     * Specifies target JIRA URL.
+     * @since 2.0-SNAPSHOT
+     */
+    static final String JIRA_URL = System.getProperty(varPrefix+"jira.url", "https://issues.jenkins-ci.org");
+    static final URI JIRA_URI;
     static String JIRA_DEFAULT_PROJECT = System.getProperty(varPrefix+"jira.defaultProject", "JENKINS");
+    /**
+     * Specifies timeout for JIRA requests (in seconds).
+     * @since 2.0-SNAPSHOT
+     */
+    static final int JIRA_TIMEOUT_SEC = Integer.getInteger(varPrefix+"jira.requestTimeout", 30);
 
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
     static String GITHUB_DEFAULT_TEAM = System.getProperty(varPrefix+"github.defaultTeam", "Everyone");
     static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
 
+    static {
+        try {
+            JIRA_URI = new URL(JIRA_URL).toURI();
+        } catch (Exception ex) {
+            throw new IllegalStateException("Cannot create URI for JIRA URL " + JIRA_URL, ex);
+        }
+    }
+    
     public static Map<String, String> getIRCHookConfig() {
 
         final Map<String, String> ircHookConfig = new TreeMap<String, String>();
