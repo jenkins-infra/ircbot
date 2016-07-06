@@ -10,7 +10,7 @@ VERSION_BUILD_ID=$(BUILD_ID)
 VERSION_BUILD_URL=$(BUILD_URL)
 VERSION_GIT_COMMIT=$(GIT_COMMIT)
 
-target/ircbot-1.0-SNAPSHOT-bin.zip : ${VERSION_FILE}
+target/ircbot-2.0-SNAPSHOT-bin.zip : ${VERSION_FILE}
 	mvn install
 
 ${VERSION_FILE} : ${VERSION_FILE_DIR}
@@ -23,9 +23,9 @@ ${VERSION_FILE} : ${VERSION_FILE_DIR}
 ${VERSION_FILE_DIR} :
 	mkdir ${VERSION_FILE_DIR}
 
-bot: target/ircbot-1.0-SNAPSHOT-bin.zip
+bot: target/ircbot-2.0-SNAPSHOT-bin.zip
 
-image : clean target/ircbot-1.0-SNAPSHOT-bin.zip
+image : clean bot
 	docker build -t ${IMAGENAME} .
 
 run :
