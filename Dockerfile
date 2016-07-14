@@ -1,4 +1,4 @@
-FROM java:8-jre-alpine
+FROM java:openjdk-8-jre-alpine
 
 RUN apk update && apk add --no-cache unzip
 RUN adduser -D -h /home/ircbot -u 1013 ircbot
