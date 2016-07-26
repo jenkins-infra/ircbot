@@ -142,9 +142,10 @@ class JiraHelper {
         return client.getIssueClient().getTransitions(issue).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
     }
 
+    @CheckForNull
     static Transition getTransitionByName(@Nonnull Iterable<Transition> transitions, String name) {
         for (Transition transition : transitions) {
-            if (transition.getName().equals(name)) {
+            if (transition.getName().equalsIgnoreCase(name)) {
                 return transition;
             }
         }
