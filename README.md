@@ -68,10 +68,13 @@ Setting up the environment:
  * Format: Java properties
  * Entries to set: ```userName``` and ```password```
 
-Running the bot:
+Running the bot for testing:
 
 ```
-java -Dircbot.name=test-ircbot \ -Dircbot.channels="#jenkins-ircbot-test" \ -Dircbot.testSuperUser="${YOUR_IRC_NAME}" \ -Dircbot.github.organization="jenkinsci-infra-ircbot-test" \
+java -Dircbot.name=test-ircbot \ 
+-Dircbot.channels="#jenkins-ircbot-test" \ 
+-Dircbot.testSuperUser="${YOUR_IRC_NAME}" \ 
+-Dircbot.github.organization="jenkinsci-infra-ircbot-test" \
 -Dircbot.jira.url=${JIRA_URL} \
 -Dircbot.jira.defaultProject=TEST \
 -jar target/ircbot-2.0-SNAPSHOT-bin/ircbot-2.0-SNAPSHOT.jar 
