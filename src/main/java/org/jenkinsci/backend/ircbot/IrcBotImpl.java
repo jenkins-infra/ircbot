@@ -312,8 +312,10 @@ public class IrcBotImpl extends PircBot {
         final String issueID = "HOSTING-" + hostingId;
         sendMessage(channel, "Approving hosting request " + issueID);
         replyBugStatus(channel, issueID);
+        JiraRestClient client = null;
+
         try {
-            final JiraRestClient client = JiraHelper.createJiraClient();
+            client = JiraHelper.createJiraClient();
             final IssueRestClient issueClient = client.getIssueClient();
             final Issue issue = JiraHelper.getIssue(client, issueID);
 
@@ -402,6 +404,10 @@ public class IrcBotImpl extends PircBot {
         } catch(Exception e) {
             e.printStackTrace();
             sendMessage(channel,"Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
     }
 
@@ -506,8 +512,10 @@ public class IrcBotImpl extends PircBot {
                 subcomponent, IrcBotConfig.JIRA_DEFAULT_PROJECT, owner));
 
         boolean result = false;
+        JiraRestClient client = null;
         try {
-            final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
+            client = JiraHelper.createJiraClient();
+            final ComponentRestClient componentClient = client.getComponentClient();
             final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, 
                     new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
             final Component component = JiraHelper.wait(createComponent);
@@ -517,6 +525,10 @@ public class IrcBotImpl extends PircBot {
         } catch (Exception e) {
             sendMessage(channel,"Failed to create a new component: "+e.getMessage());
             e.printStackTrace();
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
 
         return result;
@@ -533,8 +545,9 @@ public class IrcBotImpl extends PircBot {
 
         sendMessage(channel,String.format("Renaming subcomponent %s to %s", oldName, newName));
 
+        JiraRestClient client = null;
         try {
-            final JiraRestClient client = JiraHelper.createJiraClient();
+            client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
             final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
             Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
@@ -544,6 +557,10 @@ public class IrcBotImpl extends PircBot {
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
             e.printStackTrace();
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
     }
     
@@ -558,8 +575,9 @@ public class IrcBotImpl extends PircBot {
 
         sendMessage(channel,String.format("Deleting the subcomponent %s. All issues will be moved to %s", deletedComponent, backupComponent));
 
+        JiraRestClient client = null;
         try {
-            final JiraRestClient client = JiraHelper.createJiraClient();
+            client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, deletedComponent);
             final Component componentBackup = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, backupComponent);
             Promise<Void> removeComponent = client.getComponentClient().removeComponent(component.getSelf(), componentBackup.getSelf());
@@ -568,6 +586,10 @@ public class IrcBotImpl extends PircBot {
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
             e.printStackTrace();
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
     }
     
@@ -589,9 +611,10 @@ public class IrcBotImpl extends PircBot {
         }
         
         sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
-        
+
+        JiraRestClient client = null;
         try {
-            final JiraRestClient client = JiraHelper.createJiraClient();
+            client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
             Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
                     new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
@@ -600,6 +623,10 @@ public class IrcBotImpl extends PircBot {
         } catch (Exception e) {
             sendMessage(channel,"Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
     }
     
@@ -615,8 +642,9 @@ public class IrcBotImpl extends PircBot {
 
         sendMessage(channel,String.format("Updating the description of component %s", componentName));
 
+        JiraRestClient client = null;
         try {
-            final JiraRestClient client = JiraHelper.createJiraClient();
+            client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, componentName);
             Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
                     new ComponentInput(null, description != null ? description : "", null, null));
@@ -625,6 +653,10 @@ public class IrcBotImpl extends PircBot {
         } catch (Exception e) {
             sendMessage(channel,e.getMessage());
             e.printStackTrace();
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
         }
     }
     

@@ -84,6 +84,18 @@ class JiraHelper {
         return client.getIssueClient().getIssue(ticket).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
     }
     
+
+    static boolean close(JiraRestClient client) {
+        try {
+            if (client != null) {
+                client.close();
+            }
+        } catch (IOException e) {
+            return false;
+        }
+        return true;
+    }
+
     @Nonnull
     static BasicComponent getBasicComponent(JiraRestClient client, String projectId, String componentName) 
             throws ExecutionException, TimeoutException, InterruptedException, IOException {
@@ -112,11 +124,14 @@ class JiraHelper {
      * @throws TimeoutException Timeout violation. See {@link IrcBotConfig#JIRA_TIMEOUT_SEC}.
      */
     static String getSummary(String ticket) throws IOException, ExecutionException, TimeoutException, InterruptedException {
+        String result;
         JiraRestClient client = createJiraClient();
         Issue issue = client.getIssueClient().getIssue(ticket).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
-        return String.format("%s:%s (%s) %s",
-                issue.getKey(), issue.getSummary(), issue.getStatus().getName(), 
-                IrcBotConfig.JIRA_URL + "/browse/"+ticket);
+        result = String.format("%s:%s (%s) %s",
+                issue.getKey(), issue.getSummary(), issue.getStatus().getName(),
+                IrcBotConfig.JIRA_URL + "/browse/" + ticket);
+        close(client);
+        return result;
     }
     
     @CheckForNull
