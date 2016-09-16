@@ -37,8 +37,8 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -377,6 +377,7 @@ public class IrcBotImpl extends PircBot {
                     + "a wiki page setup with the following guidelines in mind: \n\n"
                     + "* [Creating a wiki page|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-CreatingaWikipage]\n"
                     + "* [Reference the wiki page from your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-AddingyourWikipagetoyourrepo]\n"
+                    + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
                     + "\n\nWelcome aboard!";
 
             // add comment
