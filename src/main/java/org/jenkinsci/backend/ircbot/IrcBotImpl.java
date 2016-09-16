@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -63,6 +64,8 @@ public class IrcBotImpl extends PircBot {
      * Records commands that we didn't understand.
      */
     private File unknownCommands;
+
+    private final Random random = new Random(System.currentTimeMillis());
 
     /**
      * Map from the issue number to the time it was last mentioned.
@@ -265,7 +268,7 @@ public class IrcBotImpl extends PircBot {
             restart(channel,sender);
         }
 
-        sendMessage(channel,"I didn't understand the command");
+        sendFallbackMessage(channel, payload);
 
         try {
             PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
@@ -273,6 +276,21 @@ public class IrcBotImpl extends PircBot {
             w.close();
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
+        }
+    }
+
+    private void sendFallbackMessage(String channel, String payload) {
+        if(StringUtils.containsIgnoreCase(payload, "thank")) {
+            sendMessage(channel, "You're welcome");
+        }
+        if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
+            sendMessage(channel, "Hello you");
+        }
+        if(random.nextInt(3)==0) {
+            sendMessage(channel, "Wut?");
+        }
+        else {
+            sendMessage(channel, "I didn't understand the command");
         }
     }
 
