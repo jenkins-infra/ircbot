@@ -268,7 +268,7 @@ public class IrcBotImpl extends PircBot {
             restart(channel,sender);
         }
 
-        sendFallbackMessage(channel, payload);
+        sendFallbackMessage(channel, payload, sender);
 
         try {
             PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
@@ -279,12 +279,12 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    private void sendFallbackMessage(String channel, String payload) {
+    private void sendFallbackMessage(String channel, String payload, String sender) {
         if(StringUtils.containsIgnoreCase(payload, "thank")) {
             sendMessage(channel, "You're welcome");
         }
         if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
-            sendMessage(channel, "Hello you");
+            sendMessage(channel, "Hello " + sender + "!");
         }
         if(random.nextInt(3)==0) {
             sendMessage(channel, "Wut?");
