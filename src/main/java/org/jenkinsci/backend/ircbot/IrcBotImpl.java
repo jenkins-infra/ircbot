@@ -8,7 +8,7 @@ import com.atlassian.jira.rest.client.api.domain.AssigneeType;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Component;
-import com.atlassian.jira.rest.client.api.domain.IssueField;
+import com.atlassian.jira.rest.client.api.domain.Transition;
 import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
@@ -58,7 +58,7 @@ public class IrcBotImpl extends PircBot {
     private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
     private static final String USER_LIST_JIRA_FIELD = "customfield_10323"; 
-    private static final int DONE_JIRA_RESOLUTION_ID = 10000;
+    private static final String DONE_JIRA_RESOLUTION_NAME = "Done";
 
     /**
      * Records commands that we didn't understand.
@@ -353,7 +353,6 @@ public class IrcBotImpl extends PircBot {
                 users.add(u.trim());
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
-            
 
             if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 sendMessage(channel,"Could not retrieve information (or information does not exist) from the HOSTING JIRA");
@@ -387,9 +386,10 @@ public class IrcBotImpl extends PircBot {
 
             // update the issue with information on next steps
             String msg = "The code has been forked into the jenkinsci project on GitHub as "
-                    + "https://github.com/jenkinsci/" + forkTo
-                    + "\n\nA JIRA component named " + forkTo + " has also been created with "
-                    + defaultAssignee + " as the default assignee for issues."
+                    + "https://github.com/jenkinsci/" + forkTo + ". Each committer (" + String.join(",", users) + ") "
+		    + "will need to accept the invitation from Github in order to commit to the new repository."
+                    + "\n\nA JIRA component named " + forkTo + " (https://issues.jenkins-ci.org/issues/?jql=project+%3D+JENKINS+AND+component+%3D+" + forkTo + ")"
+		    + " has also been created with " + defaultAssignee + " as the default assignee for issues."
                     + "\n\nPlease remove your original repository so that the jenkinsci repository "
                     + "is the definitive source for the code. Also, please make sure you have "
                     + "a wiki page setup with the following guidelines in mind: \n\n"
@@ -403,18 +403,18 @@ public class IrcBotImpl extends PircBot {
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             // mark as "done".
-            // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
             try {
-                //TODO: Better message
-                Comment closingComment = Comment.valueOf("Marking the issue as Done");
-                Promise<Void> transition = issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
-                JiraHelper.wait(transition);
+                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), DONE_JIRA_RESOLUTION_NAME);
+
+                if(transition != null) {
+                    //TODO: Better message
+                    Comment closingComment = Comment.valueOf("Marking the issue as Done");
+                    Promise<Void> tran = issueClient.transition(issue, new TransitionInput(transition.getId(), closingComment));
+                    JiraHelper.wait(tran);
+                } else {
+                    sendMessage(channel,"Unable to transition issue to " + DONE_JIRA_RESOLUTION_NAME + " state");
+                }
             } catch (RestClientException e) {
-                // if the issue cannot be put into the "resolved" state
-                // (perhaps it's already in that state), let it be. Or else
-                // we end up with the carpet bombing like HUDSON-2552.
-                // See HUDSON-5133 for the failure mode.
-                
                 System.err.println("Failed to mark the issue as Done. " + e.getMessage());
                 e.printStackTrace();
             }
