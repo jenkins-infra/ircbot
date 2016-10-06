@@ -283,10 +283,10 @@ public class IrcBotImpl extends PircBot {
         if(StringUtils.containsIgnoreCase(payload, "thank")) {
             sendMessage(channel, "You're welcome");
         }
-        if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
+        else if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
             sendMessage(channel, "Hello " + sender + "!");
         }
-        if(random.nextInt(3)==0) {
+        else if(random.nextInt(3)==0) {
             sendMessage(channel, "Wut?");
         }
         else {
