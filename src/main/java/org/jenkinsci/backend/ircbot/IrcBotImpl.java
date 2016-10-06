@@ -386,7 +386,8 @@ public class IrcBotImpl extends PircBot {
             }
 
             // update the issue with information on next steps
-            String msg = "The code has been forked into the jenkinsci project on GitHub as "
+            String msg = "At the request of " + sender + " on IRC, "
+                    + "the code has been forked into the jenkinsci project on GitHub as "
                     + "https://github.com/jenkinsci/" + forkTo
                     + "\n\nA JIRA component named " + forkTo + " has also been created with "
                     + defaultAssignee + " as the default assignee for issues."
