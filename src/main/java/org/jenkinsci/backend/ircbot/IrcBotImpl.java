@@ -493,7 +493,7 @@ public class IrcBotImpl extends PircBot {
     }
 
     private void help(String channel) {
-        sendMessage(channel,"See http://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot");
+        sendMessage(channel,"See https://jenkins.io/projects/infrastructure/ircbot/");
     }
 
     private void version(String channel) {
