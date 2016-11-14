@@ -29,12 +29,10 @@ import com.atlassian.jira.rest.client.api.domain.Component;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.IssueField;
 import com.atlassian.jira.rest.client.api.domain.Project;
-import com.atlassian.jira.rest.client.api.domain.Status;
+import com.atlassian.jira.rest.client.api.domain.Transition;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousJiraRestClientFactory;
 import com.atlassian.util.concurrent.Promise;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -152,5 +150,20 @@ class JiraHelper {
             }
         }
         return res;
+    }
+
+    static Iterable<Transition> getTransitions(@Nonnull Issue issue) throws IOException, ExecutionException, TimeoutException, InterruptedException {
+        JiraRestClient client = createJiraClient();
+        return client.getIssueClient().getTransitions(issue).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
+    }
+
+    @CheckForNull
+    static Transition getTransitionByName(@Nonnull Iterable<Transition> transitions, String name) {
+        for (Transition transition : transitions) {
+            if (transition.getName().equalsIgnoreCase(name)) {
+                return transition;
+            }
+        }
+        return null;
     }
 }

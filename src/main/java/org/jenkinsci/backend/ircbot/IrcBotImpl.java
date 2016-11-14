@@ -8,8 +8,10 @@ import com.atlassian.jira.rest.client.api.domain.AssigneeType;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Component;
-import com.atlassian.jira.rest.client.api.domain.IssueField;
+import com.atlassian.jira.rest.client.api.domain.Transition;
+import com.atlassian.jira.rest.client.api.domain.input.ComplexIssueInputFieldValue;
 import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
+import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
 import org.apache.commons.lang.StringUtils;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -57,8 +60,8 @@ import javax.annotation.CheckForNull;
 public class IrcBotImpl extends PircBot {
     private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    private static final String USER_LIST_JIRA_FIELD = "customfield_10323"; 
-    private static final int DONE_JIRA_RESOLUTION_ID = 10000;
+    private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+    private static final String DONE_JIRA_RESOLUTION_NAME = "Done";
 
     /**
      * Records commands that we didn't understand.
@@ -403,13 +406,14 @@ public class IrcBotImpl extends PircBot {
             issueClient.addComment(new URI(issue.getSelf().toString() + "/comment"), Comment.valueOf(msg)).
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
-            // mark as "done".
-            // comment set here doesn't work. see http://jira.atlassian.com/browse/JRA-11278
             try {
-                //TODO: Better message
-                Comment closingComment = Comment.valueOf("Marking the issue as Done");
-                Promise<Void> transition = issueClient.transition(issue, new TransitionInput(DONE_JIRA_RESOLUTION_ID, closingComment));
-                JiraHelper.wait(transition);
+                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), DONE_JIRA_RESOLUTION_NAME);
+                if(transition != null) {
+                    Collection<FieldInput> inputs = Arrays.asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", DONE_JIRA_RESOLUTION_NAME)));
+                    JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
+                } else {
+                    sendMessage(channel,"Unable to transition issue to \"" + DONE_JIRA_RESOLUTION_NAME + "\" state");
+                }
             } catch (RestClientException e) {
                 // if the issue cannot be put into the "resolved" state
                 // (perhaps it's already in that state), let it be. Or else
