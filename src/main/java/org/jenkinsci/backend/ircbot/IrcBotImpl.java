@@ -356,7 +356,6 @@ public class IrcBotImpl extends PircBot {
                 users.add(u.trim());
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
-            
 
             if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 sendMessage(channel,"Could not retrieve information (or information does not exist) from the HOSTING JIRA");
@@ -804,9 +803,9 @@ public class IrcBotImpl extends PircBot {
     
     /**
      * @param newName
-     *      If not null, rename a epository after a fork.
+     *      If not null, rename a repository after a fork.
      */
-    private boolean forkGitHub(String channel, String sender, String owner, String repo, String newName) {
+    boolean forkGitHub(String channel, String sender, String owner, String repo, String newName) {
         boolean result = false;
         try {
             if (!isSenderAuthorized(channel,sender)) {
@@ -814,9 +813,16 @@ public class IrcBotImpl extends PircBot {
                 return false;
             }
 
+            GitHub github = GitHub.connect();
+            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+            GHRepository check = org.getRepository(newName);
+            if(check != null) {
+                sendMessage(channel,"Repository with name "+newName+" already exists in "+IrcBotConfig.GITHUB_ORGANIZATION);
+                return false;
+            }
+
             sendMessage(channel, "Forking "+repo);
 
-            GitHub github = GitHub.connect();
             GHUser user = github.getUser(owner);
             if (user==null) {
                 sendMessage(channel,"No such user: "+owner);
@@ -828,7 +834,6 @@ public class IrcBotImpl extends PircBot {
                 return false;
             }
 
-            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
             GHRepository r;
             try {
                 r = orig.forkTo(org);
@@ -869,7 +874,6 @@ public class IrcBotImpl extends PircBot {
                 // fall through
             }
 
-            
 
             setupRepository(r);
 
