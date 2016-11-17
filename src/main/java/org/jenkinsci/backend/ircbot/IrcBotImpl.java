@@ -815,8 +815,8 @@ public class IrcBotImpl extends PircBot {
 
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-            GHRepository r = org.getRepository(newName);
-            if(r != null) {
+            GHRepository check = org.getRepository(newName);
+            if(check != null) {
                 sendMessage(channel,"Repository with name "+newName+" already exists in "+IrcBotConfig.GITHUB_ORGANIZATION);
                 return false;
             }
@@ -834,6 +834,7 @@ public class IrcBotImpl extends PircBot {
                 return false;
             }
 
+            GHRepository r;
             try {
                 r = orig.forkTo(org);
             } catch (IOException e) {
