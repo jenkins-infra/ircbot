@@ -1,7 +1,7 @@
 # JIRA/GitHub management IRCBot
 [![Build Status](https://ci.jenkins-ci.org/view/Infrastructure/job/Containers/job/infra_ircbot/badge/icon)](https://ci.jenkins-ci.org/view/Infrastructure/job/Containers/job/infra_ircbot/)
 
-This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [IRC Bot Wiki][1]
+This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [Jenkins IRC Bot Page][1]
 
 ## Deployment
 This repo is containerized, then deployed to our infrastructure via Puppet. 
@@ -82,6 +82,6 @@ java -Dircbot.name=test-ircbot \
    
 After executing this command the bot should connect to your IRC chat.
    
-[1]: https://wiki.jenkins-ci.org/display/JENKINS/IRC+Bot
+[1]: [1]: https://jenkins.io/projects/infrastructure/ircbot/
 [2]: https://ci.jenkins-ci.org/view/Infrastructure/job/Containers/job/infra_ircbot/
 [3]: http://www.opensource.org/licenses/mit-license.php
