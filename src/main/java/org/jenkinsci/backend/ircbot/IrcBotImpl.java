@@ -395,9 +395,11 @@ public class IrcBotImpl extends PircBot {
                     + defaultAssignee + " as the default assignee for issues."
                     + "\n\nPlease remove your original repository so that the jenkinsci repository "
                     + "is the definitive source for the code. Also, please make sure you have "
-                    + "a wiki page setup with the following guidelines in mind: \n\n"
+                    + "a wiki page set up with the following guidelines in mind: \n\n"
                     + "* [Creating a wiki page|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-CreatingaWikipage]\n"
                     + "* [Reference the wiki page from your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-AddingyourWikipagetoyourrepo]\n"
+                    + "\n\nYou will also need to do the following in order to push changes and release your plugin: \n\n"
+                    + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
                     + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
                     + "\n\nWelcome aboard!";
 
