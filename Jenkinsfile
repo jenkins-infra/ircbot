@@ -1,49 +1,30 @@
-#!groovy
-
-def imageName = 'jenkinsciinfra/ircbot'
-
-/* Only keep the 10 most recent builds. */
-properties([[$class: 'BuildDiscarderProperty',
-                strategy: [$class: 'LogRotator', numToKeepStr: '10']]])
-
-node('docker') {
-    def imageTag
-    stage('Checkout') {
-        deleteDir()
-        checkout scm
-        /* Using this hack right now to grab the appropriate abbreviated SHA1 of
-        * our current build's commit. We must do this because right now I cannot
-        * refer to `env.GIT_COMMIT` in Pipeline scripts
-        */
-        sh 'git rev-parse HEAD > GIT_COMMIT'
-        shortCommit = readFile('GIT_COMMIT').take(6)
-        imageTag = "${env.BUILD_ID}-build${shortCommit}"
+pipeline {
+    // Make sure that the tools we need are installed and on the path.
+    tools {
+        maven "mvn"
+        jdk "jdk8"
     }
 
-    stage('Build ircbot') {
-        withEnv([
-            "BUILD_NUMBER=${env.BUILD_NUMBER}:${shortCommit}",
-            "JAVA_HOME=${tool 'jdk8'}",
-            "PATH+MVN=${tool 'mvn'}/bin",
-        ]) {
-            timestamps {
-                sh 'make bot'
+    agent label:"java"
+
+    // The order that sections are specified doesn't matter - this will still be run
+    // after the stages, even though it's specified before the stages.
+    post {
+        // No matter what the build status is, run these steps. There are other conditions
+        // available as well, such as "success", "failed", "unstable", and "changed".
+        always {
+            archive "*/target/**/*"
+            junit '*/target/surefire-reports/*.xml'
+        }
+    }
+
+    stages {
+        // While there's only one stage here, you can specify as many stages as you like!
+        stage("build") {
+            steps {
+                sh 'mvn -B -U clean install -Dmaven.test.failure.ignore=true'
             }
         }
     }
 
-    def whale
-    stage('Build container') {
-        whale = docker.build("${imageName}:${imageTag}", '--no-cache --rm .')
-    }
-
-    /* if we're outside of a multibranch pipeline, we're executing in the
-     * trusted.ci environment which can actually deploy containers to Docker
-     * Hub
-     */
-    if (!env.CHANGE_ID && !env.BRANCH_NAME) {
-        stage('Deploy container') {
-            whale.push()
-        }
-    }
 }
