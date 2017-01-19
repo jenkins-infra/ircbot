@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<maven2-moduleset plugin="maven-plugin@1.509.2.9">
+    <description>@@NAME@@</description>
+    <properties>
+        <com.cloudbees.hudson.plugins.modeling.impl.jobTemplate.JobPropertyImpl plugin="cloudbees-template@3.16">
+            <instance>
+                <model>abe3a090-4b07-40b8-8207-e3cc79f3823e</model>
+                <values>
+                    <entry>
+                        <string>name</string>
+                        <string>@@NAME@@</string>
+                    </entry>
+                </values>
+                <item class="maven2-moduleset" reference="../../../.."/>
+            </instance>
+        </com.cloudbees.hudson.plugins.modeling.impl.jobTemplate.JobPropertyImpl>
+    </properties>
+</maven2-moduleset>
