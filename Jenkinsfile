@@ -2,9 +2,11 @@
 
 def imageName = 'jenkinsciinfra/ircbot'
 
-/* Only keep the 10 most recent builds. */
-properties([[$class: 'BuildDiscarderProperty',
-                strategy: [$class: 'LogRotator', numToKeepStr: '10']]])
+/* Only keep the 5 most recent builds. */
+properties([
+  [$class: 'BuildDiscarderProperty', strategy: [$class: 'LogRotator', numToKeepStr: '5']],
+  pipelineTriggers([[$class:"SCMTrigger", scmpoll_spec:"H/10 * * * *"]]),
+])
 
 node('docker') {
     def imageTag
