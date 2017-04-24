@@ -918,7 +918,7 @@ public class IrcBotImpl extends PircBot {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
         if (t==null) {
-            t = org.createTeam(teamName, Permission.ADMIN, r);
+            t = org.createTeam(teamName, Permission.PUSH, r);
         } else {
             if (!t.getRepositories().containsValue(r)) {
                 t.add(r);
