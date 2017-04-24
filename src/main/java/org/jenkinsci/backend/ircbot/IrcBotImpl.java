@@ -353,7 +353,8 @@ public class IrcBotImpl extends PircBot {
             String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
             String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
             for (String u : userList.split("\\n")) {
-                users.add(u.trim());
+                if(StringUtils.isNotBlank(u))
+                    users.add(u.trim());
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
 
@@ -376,7 +377,7 @@ public class IrcBotImpl extends PircBot {
 
             // add the users to the repo
             for(String user : users) {
-                if(!addGitHubCommitter(channel,sender,user,forkTo)) {
+                if(StringUtils.isNotBlank(user) && !addGitHubCommitter(channel,sender,user,forkTo)) {
                     sendMessage(channel,"Hosting request failed to add "+user+" as committer, continuing anyway");
                 }
             }
@@ -401,6 +402,7 @@ public class IrcBotImpl extends PircBot {
                     + "\n\nYou will also need to do the following in order to push changes and release your plugin: \n\n"
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
                     + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
+                    + "* [Releasing your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Releasingtojenkins-ci.org]\n"
                     + "\n\nWelcome aboard!";
 
             // add comment
