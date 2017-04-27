@@ -14,10 +14,16 @@ import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
+import com.google.common.io.NullOutputStream;
+import hudson.cli.CLI;
+import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.NullInputStream;
 import org.apache.commons.lang.StringUtils;
 import org.jibble.pircbot.PircBot;
 import org.jibble.pircbot.User;
+import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHEvent;
+import org.kohsuke.github.GHHook;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHRepository;
@@ -29,11 +35,14 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.URI;
+import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -251,6 +260,12 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:create-ci) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            createCIJob(channel,sender,m.group(1));
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -385,6 +400,11 @@ public class IrcBotImpl extends PircBot {
             // create the JIRA component
             if(!createComponent(channel,sender,forkTo,defaultAssignee)) {
                 sendMessage(channel,"Hosting request failed to create component "+forkTo+" in JIRA");
+                return;
+            }
+
+            if(!createCIJob(channel,sender,forkTo)) {
+                sendMessage(channel, "Hosting request failed to create CI job for "+forkTo+" on "+IrcBotConfig.CI_URL);
                 return;
             }
 
@@ -524,6 +544,97 @@ public class IrcBotImpl extends PircBot {
         // I noticed that sometimes the bot just get out of sync, so ask the sender to retry
         sendRawLine("NAMES " + channel);
         sendMessage(channel,"I'll refresh the member list, so if you think this is an error, try again in a few seconds.");
+    }
+
+    private boolean hasHook(GHRepository r) throws IOException {
+        for (GHHook h : r.getHooks()) {
+            if (h.getName().equals("jenkins"))
+                return true;
+        }
+        return false;
+    }
+
+    private void createHook(GHRepository r) throws IOException {
+        r.createHook("jenkins", Collections.singletonMap("jenkins_hook_url", "https://jenkins.ci.cloudbees.com/github-webhook/"),null,true);
+    }
+
+    private InputStream computeJobTypeXml(GHRepository r) {
+        InputStream xml = null;
+        HashMap<String, String> jobTypes = new HashMap<String, String>();
+        jobTypes.put("maven", "pom.xml");
+        jobTypes.put("gradle", "build.gradle");
+
+        for(Map.Entry<String, String> jobType : jobTypes.entrySet()) {
+            try {
+                GHContent content = r.getFileContent(jobType.getValue());
+                if(content != null) {
+                    xml = IrcBotImpl.class.getResourceAsStream(jobType.getKey()+"-job.xml");
+                }
+            } catch(Exception e) {
+                xml = null;
+            }
+        }
+        return xml;
+    }
+
+    private boolean createCIJob(String channel, String sender, String repo) {
+        boolean result = true;
+        if(!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+
+        CLI cli = null;
+        try {
+            GitHub gh = GitHub.connect();
+            GHOrganization org = gh.getOrganization("jenkinsci");
+            GHRepository r = org.getRepository(repo);
+            if(r != null && r.getName().endsWith("-plugin")) {
+                String jobName = "plugins/" + r.getName();
+                cli = new CLI(new URL(IrcBotConfig.CI_URL));
+                cli.authenticate(CLI.loadKey(new File(System.getProperty("user.home") + "/.ssh/id_rsa")));
+
+                if (cli.execute(Arrays.asList("get-job", jobName),
+                        new NullInputStream(0),new NullOutputStream(),new NullOutputStream())==0) {
+                    sendMessage(channel,"CI Job for "+repo+" already exists on "+IrcBotConfig.CI_URL);
+
+                    if (!hasHook(r))
+                        createHook(r);
+                } else {
+                    sendMessage(channel, "Creating CI Job for "+repo+" on "+IrcBotConfig.CI_URL);
+
+                    InputStream jobXml = computeJobTypeXml(r);
+                    if(jobXml == null) {
+                        sendMessage(channel, "Could not find a valid build file in repository");
+                        return false;
+                    }
+
+                    String xml = IOUtils.toString(jobXml, "UTF-8");
+                    xml = xml.replaceAll("@@NAME@@", r.getName());
+
+                    if (cli.execute(Arrays.asList("create-job", jobName), new ByteArrayInputStream(xml.getBytes("UTF-8")),
+                            System.out, System.err) != 0) {
+                        throw new Error("Job creation failed");
+                    }
+                    createHook(r);
+                }
+            } else {
+                sendMessage(channel, repo+" doesn't look like a valid jenkinsci org repository");
+            }
+        } catch(Exception e) {
+            sendMessage(channel,String.format("Error creating CI job"));
+            e.printStackTrace();
+            result = false;
+        } finally {
+            try {
+                if(cli != null) {
+                    cli.close();
+                }
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return result;
     }
 
     /**

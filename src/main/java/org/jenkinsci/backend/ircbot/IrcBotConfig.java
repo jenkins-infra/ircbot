@@ -66,6 +66,8 @@ public class IrcBotConfig {
     static String GITHUB_DEFAULT_TEAM = System.getProperty(varPrefix+"github.defaultTeam", "Everyone");
     static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
 
+    static String CI_URL = System.getProperty(varPrefix+"ci.url", "https://jenkins.ci.cloudbees.com/");
+
     static {
         try {
             JIRA_URI = new URL(JIRA_URL).toURI();
