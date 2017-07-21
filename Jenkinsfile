@@ -39,13 +39,11 @@ node('docker') {
         whale = docker.build("${imageName}:${imageTag}", '--no-cache --rm .')
     }
 
-    /* if we're outside of a multibranch pipeline, we're executing in the
-     * trusted.ci environment which can actually deploy containers to Docker
-     * Hub
-     */
-    if (!env.CHANGE_ID && !env.BRANCH_NAME) {
-        stage('Deploy container') {
-            whale.push()
+    if (infra.isTrusted()) {
+        stage('Publish container') {
+            infra.withDockerCredentials {
+                timestamps { whale.push() }
+            }
         }
     }
 }
