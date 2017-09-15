@@ -403,8 +403,8 @@ public class IrcBotImpl extends PircBot {
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
                     + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
                     + "* [Releasing your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Releasingtojenkins-ci.org]\n"
-                    + "\n\nIn order for your plugin to be built by the Jenkins CI infrastructure and check PR's, please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root "
-                    + "of your repository with the following content:\n"
+                    + "\n\nIn order for your plugin to be built by the [Jenkins CI Infrastructure|https://ci.jenkins.io] and check pull requests,"
+                    + " please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root of your repository with the following content:\n"
                     + "{code}\nbuildPlugin()\n{code}"
                     + "\n\nWelcome aboard!";
 
