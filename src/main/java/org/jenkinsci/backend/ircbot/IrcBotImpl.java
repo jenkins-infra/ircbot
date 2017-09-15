@@ -321,7 +321,7 @@ public class IrcBotImpl extends PircBot {
         }
 
         kick(channel, target);
-        sendMessage(channel, "Kicked user" + target);
+        sendMessage(channel, "Kicked user " + target);
     }
 
     private void setupHosting(String channel, String sender, String hostingId, String defaultForkTo) {
@@ -403,6 +403,9 @@ public class IrcBotImpl extends PircBot {
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
                     + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
                     + "* [Releasing your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Releasingtojenkins-ci.org]\n"
+                    + "\n\nIn order for your plugin to be built by the Jenkins CI infrastructure and check PR's, please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root "
+                    + "of your repository with the following content:\n"
+                    + "{code}\nbuildPlugin()\n{code}"
                     + "\n\nWelcome aboard!";
 
             // add comment
@@ -774,7 +777,7 @@ public class IrcBotImpl extends PircBot {
             sendMessage(channel,successMsg);
             result = true;
         } catch (IOException e) {
-            sendMessage(channel,"Failed to create a repository: "+e.getMessage());
+            sendMessage(channel,"Failed to add user to team: "+e.getMessage());
             e.printStackTrace();
         }
         return result;
@@ -822,6 +825,12 @@ public class IrcBotImpl extends PircBot {
             GHRepository check = org.getRepository(newName);
             if(check != null) {
                 sendMessage(channel,"Repository with name "+newName+" already exists in "+IrcBotConfig.GITHUB_ORGANIZATION);
+                return false;
+            }
+
+            check = org.getRepository(repo);
+            if(check != null) {
+                sendMessage(channel, "Repository "+repo+" can't be forked, an existing repository with that name already exists in "+IrcBotConfig.GITHUB_ORGANIZATION);
                 return false;
             }
 
