@@ -832,7 +832,7 @@ public class IrcBotImpl extends PircBot {
             // if a repo has been forked and renamed, we can clone as that name and be fine
             // we just want to make sure we don't fork to an current repository name.
             check = org.getRepository(repo);
-            if(check != null && check.getName().equalsIgnoreCase(repo.toLowerCase())) {
+            if(check != null && check.getName().equalsIgnoreCase(repo)) {
                 sendMessage(channel, "Repository " + repo + " can't be forked, an existing repository with that name already exists in " + IrcBotConfig.GITHUB_ORGANIZATION);
                 return false;
             }
