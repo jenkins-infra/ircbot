@@ -147,6 +147,8 @@ public class IrcBotImplTest extends TestCase {
         final String botUser = "bot-user";
         final String owner = "bar";
         final String from = "jenkins";
+        
+        try {
 
         PowerMockito.mockStatic(GitHub.class);
 
@@ -210,6 +212,10 @@ public class IrcBotImplTest extends TestCase {
         } else {
             fail("Could not get addUser method");
         }
+        } catch(Exception e) {
+            fail(e.toString());   
+        }
+            
     }
 
 }
