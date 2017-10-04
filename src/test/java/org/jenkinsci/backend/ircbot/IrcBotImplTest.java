@@ -213,7 +213,11 @@ public class IrcBotImplTest extends TestCase {
             fail("Could not get addUser method");
         }
         } catch(Exception e) {
-            fail(e.toString());   
+            java.io.StringWriter sw = new java.io.StringWriter();
+            java.io.PrintWriter pw = new java.io.PrintWriter(sw);
+            e.printStackTrace(pw);
+            String sStackTrace = sw.toString(); 
+            fail(e.getMessage() + "\n\n" + sStackTrace);   
         }
             
     }
