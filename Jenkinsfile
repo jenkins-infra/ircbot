@@ -34,6 +34,10 @@ node('docker') {
         }
     }
 
+    state('Archive Test Results') {
+        junit '**/target/surefire-reports/**/*.xml'
+    }
+
     def whale
     stage('Build container') {
         whale = docker.build("${imageName}:${imageTag}", '--no-cache --rm .')
