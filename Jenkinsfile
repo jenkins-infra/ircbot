@@ -34,7 +34,7 @@ node('docker') {
         }
     }
 
-    state('Archive Test Results') {
+    stage('Archive Test Results') {
         junit '**/target/surefire-reports/**/*.xml'
     }
 
