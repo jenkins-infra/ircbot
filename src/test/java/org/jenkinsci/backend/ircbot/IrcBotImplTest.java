@@ -186,7 +186,8 @@ public class IrcBotImplTest extends TestCase {
         GHTeam t = Mockito.mock(GHTeam.class);
         Mockito.doNothing().when(t).add(user);
 
-        Mockito.when(gho.createTeam("some-new-name Developers", GHOrganization.Permission.ADMIN, newRepo)).thenReturn(t);
+        Mockito.when(gho.createTeam("some-new-name Developers", GHOrganization.Permission.PULL, newRepo)).thenReturn(t);
+        Mockito.doNothing().when(t).add(newRepo, GHOrganization.Permission.ADMIN);
 
         System.setProperty("ircbot.testSuperUser", botUser);
 
