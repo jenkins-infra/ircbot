@@ -721,7 +721,7 @@ public class IrcBotImpl extends PircBot {
 
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-            GHRepository r = org.createRepository(name, "", "", IrcBotConfig.GITHUB_DEFAULT_TEAM, true);
+            GHRepository r = org.createRepository(name).private_(false).create();
             setupRepository(r);
 
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
@@ -748,21 +748,22 @@ public class IrcBotImpl extends PircBot {
             return false;
         }
         try {
+            if (justForThisRepo == null) {
+                // legacy command
+                sendMessage(channel,"I'm not longer managing the Everyone team. Please add committers to specific repos.");
+                return false;
+            }
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
             
             final GHTeam t;
-            if (justForThisRepo != null) {
                 GHRepository forThisRepo = o.getRepository(justForThisRepo);
                  if (forThisRepo == null) {
                      sendMessage(channel,"Could not find repository:  "+justForThisRepo);
                      return false;
                  }
                  t = getOrCreateRepoLocalTeam(o, forThisRepo);
-            } else {
-                t = o.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
-            }
                 
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
@@ -770,10 +771,7 @@ public class IrcBotImpl extends PircBot {
             }
 
             t.add(c);
-            String successMsg = "Added "+collaborator+" as a GitHub committer";
-            if (justForThisRepo != null) {
-                successMsg += " for repository " + justForThisRepo;
-            }
+            String successMsg = "Added "+collaborator+" as a GitHub committer for repository " + justForThisRepo;
             sendMessage(channel,successMsg);
             result = true;
         } catch (IOException e) {

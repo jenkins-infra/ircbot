@@ -63,7 +63,6 @@ public class IrcBotConfig {
 
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
-    static String GITHUB_DEFAULT_TEAM = System.getProperty(varPrefix+"github.defaultTeam", "Everyone");
     static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
 
     static {
