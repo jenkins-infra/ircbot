@@ -4,17 +4,17 @@
 This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [Jenkins IRC Bot Page][1]
 
 ## Deployment
-This repo is containerized, then deployed to our infrastructure via Puppet. 
+This repo is containerized, then deployed to our infrastructure via Puppet.
 You should have a Write permission to https://github.com/jenkins-infra/ircbot and https://github.com/jenkins-infra/jenkins-infra to deploy the new version of the Bot
 
 Actions:
 
 1. Commit/merge changes into the master branch
-2. Wait till the preparation of Docker package on Jenkins INFRA 
+2. Wait till the preparation of Docker package on Jenkins INFRA
  * Go to the [IRC Bot job][2] on https://ci.jenkins-ci.org
  * Wait till the automatic build finishes with a SUCCESS status
 4. Modify the version on Puppet infrastructure
- *  Edit your <b>local fork</b> the following file: https://github.com/jenkins-infra/jenkins-infra/blob/staging/hieradata/common.yaml#L94  
+ *  Edit your <b>local fork</b> the following file: https://github.com/jenkins-infra/jenkins-infra/blob/staging/hieradata/common.yaml#L94
  * Change the `profile::jenkinsadmin::image_tag` variable.
    * Format: `build${JENKINSCI_BUILD_NUMBER}`
  * Create a pull request to the main repo. Branch=staging
@@ -35,10 +35,10 @@ This section contains some info for developers.
 
 ### Reusing IRCBot in non-Jenkins project
 
-The bot is designed to be used in Jenkins, but it can be adjusted in other projects, 
-which use the similar infrastructure (GitHub, IRC, JIRA). 
-Adjustements can be made via System properties.
-These properties are located and documented in the 
+The bot is designed to be used in Jenkins, but it can be adjusted in other projects,
+which use the similar infrastructure (GitHub, IRC, JIRA).
+Adjustments can be made via System properties.
+These properties are located and documented in the
 <code>org.jenkinsci.backend.ircbot.IrcBotConfig</code> class.
 
 Several examples are provided below.
@@ -62,7 +62,7 @@ Setting up the environment:
 0. Setup Github credentials in the ```~/.github``` file
  * Format: Java properties
  * Entries to set: ```login``` and ```password```
- * It's also possible ```oauth``` and ```endpoint``` properties 
+ * It's also possible ```oauth``` and ```endpoint``` properties
  (see [github-api](https://github.com/kohsuke/github-api))
 1. Setup JIRA credentials in the ```~/.jenkins-ci.org``` file
  * Format: Java properties
@@ -71,17 +71,17 @@ Setting up the environment:
 Running the bot for testing:
 
 ```
-java -Dircbot.name=test-ircbot \ 
--Dircbot.channels="#jenkins-ircbot-test" \ 
--Dircbot.testSuperUser="${YOUR_IRC_NAME}" \ 
+java -Dircbot.name=test-ircbot \
+-Dircbot.channels="#jenkins-ircbot-test" \
+-Dircbot.testSuperUser="${YOUR_IRC_NAME}" \
 -Dircbot.github.organization="jenkinsci-infra-ircbot-test" \
 -Dircbot.jira.url=${JIRA_URL} \
 -Dircbot.jira.defaultProject=TEST \
--jar target/ircbot-2.0-SNAPSHOT-bin/ircbot-2.0-SNAPSHOT.jar 
+-jar target/ircbot-2.0-SNAPSHOT-bin/ircbot-2.0-SNAPSHOT.jar
 ```
-   
+
 After executing this command the bot should connect to your IRC chat.
-   
+
 [1]: [1]: https://jenkins.io/projects/infrastructure/ircbot/
 [2]: https://ci.jenkins-ci.org/view/Infrastructure/job/Containers/job/infra_ircbot/
 [3]: http://www.opensource.org/licenses/mit-license.php
