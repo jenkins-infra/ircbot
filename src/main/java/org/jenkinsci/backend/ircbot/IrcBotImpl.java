@@ -81,14 +81,14 @@ public class IrcBotImpl extends PircBot {
         setName(IrcBotConfig.NAME);
         this.unknownCommands = unknownCommands;
     }
-    
+
     @Override
     protected void onMessage(String channel, String sender, String login, String hostname, String message) {
         if (!IrcBotConfig.getChannels().contains(channel))     return; // not in this channel
-        if (sender.equals("jenkinsci_builds") || sender.equals("jenkins-admin") || sender.startsWith("ircbot-"))   
+        if (sender.equals("jenkinsci_builds") || sender.equals("jenkins-admin") || sender.startsWith("ircbot-"))
             return; // ignore messages from other bots
         final String directMessagePrefix = getNick() + ":";
-        
+
         message = message.trim();
         try {
             if (message.startsWith(directMessagePrefix)) { // Direct command to the bot
@@ -101,12 +101,12 @@ public class IrcBotImpl extends PircBot {
             }
         } catch (RuntimeException ex) { // Catch unhandled runtime issues
             ex.printStackTrace();
-            sendMessage(channel, "An error ocurred in the Bot. Please submit a bug to Jenkins INFRA project.");
+            sendMessage(channel, "An error occurred in the Bot. Please submit a bug to Jenkins INFRA project.");
             sendMessage(channel, ex.getMessage());
             throw ex; // Propagate the error to the caller in order to let it log and handle the issue
         }
     }
-        
+
     private void replyBugStatuses(String channel, String message) {
         Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
@@ -117,33 +117,33 @@ public class IrcBotImpl extends PircBot {
         while (m.find()) {
             replyBugStatus(channel,"INFRA-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:website-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"WEBSITE-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:hosting-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"HOSTING-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:events-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"EVENTS-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:ux-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"UX-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:test-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"TEST-"+m.group(1));
         }
     }
-    
+
     /**
      * Handles direct commands coming to the bot.
      * The handler presumes the external trimming of the payload.
@@ -162,7 +162,7 @@ public class IrcBotImpl extends PircBot {
             forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3));
             return;
         }
-        
+
         m = Pattern.compile("rename (?:github )repo (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             renameGitHubRepo(channel, sender, m.group(1), m.group(2));
@@ -186,7 +186,7 @@ public class IrcBotImpl extends PircBot {
             createComponent(channel, sender, m.group(1), m.group(2));
             return;
         }
-        
+
         m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             deleteComponent(channel, sender, m.group(1), m.group(2));
@@ -204,25 +204,25 @@ public class IrcBotImpl extends PircBot {
             removeDefaultAssignee(channel, sender, m.group(1));
             return;
         }
-        
+
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setDefaultAssignee(channel, sender, m.group(2), m.group(1));
             return;
         }
-        
+
         m = Pattern.compile("set (?:the )?description (?:for|of) (?:component )?(\\S+) to \\\"(.*)\\\"",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setComponentDescription(channel, sender, m.group(1) , m.group(2));
             return;
         }
-        
+
         m = Pattern.compile("(?:rem|remove) (?:the )?description (?:for|of) (?:component )?(\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setComponentDescription(channel, sender, m.group(1) , null);
             return;
         }
-        
+
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantAutoVoice(channel,sender,m.group(1));
@@ -266,7 +266,7 @@ public class IrcBotImpl extends PircBot {
             sendRawLine("NAMES " + channel);
             return;
         }
-        
+
         if (payload.equalsIgnoreCase("restart")) {
             restart(channel,sender);
         }
@@ -299,7 +299,7 @@ public class IrcBotImpl extends PircBot {
 
     /**
      * Restart ircbot.
-     * 
+     *
      * We just need to quit, and docker container manager will automatically restart
      * another one. We've seen for some reasons sometimes jenkins-admin loses its +o flag,
      * and when that happens a restart fixes it quickly.
@@ -309,7 +309,7 @@ public class IrcBotImpl extends PircBot {
             insufficientPermissionError(channel);
             return;
         }
-        
+
         sendMessage(channel,"I'll quit and come back");
         System.exit(0);
     }
@@ -425,7 +425,7 @@ public class IrcBotImpl extends PircBot {
                 // (perhaps it's already in that state), let it be. Or else
                 // we end up with the carpet bombing like HUDSON-2552.
                 // See HUDSON-5133 for the failure mode.
-                
+
                 System.err.println("Failed to mark the issue as Done. " + e.getMessage());
                 e.printStackTrace();
             }
@@ -459,7 +459,7 @@ public class IrcBotImpl extends PircBot {
         }
     }
 
-    
+
 
     /**
      * Is the sender respected in the channel?
@@ -469,13 +469,13 @@ public class IrcBotImpl extends PircBot {
     private boolean isSenderAuthorized(String channel, String sender) {
         return isSenderAuthorized(channel, sender, true);
     }
-    
+
     private boolean isSenderAuthorized(String channel, String sender, boolean acceptVoice) {
         for (User u : getUsers(channel)) {
             System.out.println(u.getPrefix()+u.getNick());
             if (u.getNick().equals(sender)) {
                 String p = u.getPrefix();
-                if (p.contains("@") || (acceptVoice && p.contains("+")) 
+                if (p.contains("@") || (acceptVoice && p.contains("+"))
                         || (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender) ))
                     return true;
             }
@@ -514,13 +514,13 @@ public class IrcBotImpl extends PircBot {
         } catch (IOException e) {
             e.printStackTrace();
             sendMessage(channel,"I don't know who I am");
-        } 
+        }
     }
 
     private void insufficientPermissionError(String channel) {
         insufficientPermissionError(channel, true);
     }
-    
+
     private void insufficientPermissionError(String channel, boolean acceptVoice ) {
         final String requiredPrefix = acceptVoice ? "+ or @" : "@";
         sendMessage(channel,"Only people with "+requiredPrefix+" can run this command.");
@@ -546,7 +546,7 @@ public class IrcBotImpl extends PircBot {
         try {
             client = JiraHelper.createJiraClient();
             final ComponentRestClient componentClient = client.getComponentClient();
-            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, 
+            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT,
                     new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
             final Component component = JiraHelper.wait(createComponent);
             component.getSelf();
@@ -580,7 +580,7 @@ public class IrcBotImpl extends PircBot {
             client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
             final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
-            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
+            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(),
                     new ComponentInput(newName, null, null, null));
             JiraHelper.wait(updateComponent);
             sendMessage(channel,"The component has been renamed");
@@ -593,7 +593,7 @@ public class IrcBotImpl extends PircBot {
             }
         }
     }
-    
+
     /**
      * Deletes an issue tracker component.
      */
@@ -622,31 +622,31 @@ public class IrcBotImpl extends PircBot {
             }
         }
     }
-    
+
     /**
      * Deletes an assignee from the specified component
      */
     private void removeDefaultAssignee(String channel, String sender, String subcomponent) {
         setDefaultAssignee(channel, sender, subcomponent, null);
     }
-    
+
     /**
      * Creates an issue tracker component.
-     * @param owner User ID or null if the owner should be removed 
+     * @param owner User ID or null if the owner should be removed
      */
     private void setDefaultAssignee(String channel, String sender, String subcomponent, @CheckForNull String owner) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
         }
-        
+
         sendMessage(channel,String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
 
         JiraRestClient client = null;
         try {
             client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
-            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
                     new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
             JiraHelper.wait(updateComponent);
             sendMessage(channel, owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
@@ -659,7 +659,7 @@ public class IrcBotImpl extends PircBot {
             }
         }
     }
-    
+
     /**
      * Sets the component description.
      * @param description Component description. Use null to remove the description
@@ -689,7 +689,7 @@ public class IrcBotImpl extends PircBot {
             }
         }
     }
-    
+
     private void grantAutoVoice(String channel, String sender, String target) {
         if (!isSenderAuthorized(channel,sender)) {
           insufficientPermissionError(channel);
@@ -751,7 +751,7 @@ public class IrcBotImpl extends PircBot {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-            
+
             final GHTeam t;
             if (justForThisRepo != null) {
                 GHRepository forThisRepo = o.getRepository(justForThisRepo);
@@ -763,7 +763,7 @@ public class IrcBotImpl extends PircBot {
             } else {
                 t = o.getTeams().get(IrcBotConfig.GITHUB_DEFAULT_TEAM);
             }
-                
+
             if (t==null) {
                 sendMessage(channel,"No team for "+justForThisRepo);
                 return false;
@@ -807,7 +807,7 @@ public class IrcBotImpl extends PircBot {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * @param newName
      *      If not null, rename a repository after a fork.
@@ -883,7 +883,7 @@ public class IrcBotImpl extends PircBot {
             GHTeam t = getOrCreateRepoLocalTeam(org, r);
             try {
                 t.add(user);    // the user immediately joins this team
-                
+
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 sendMessage(channel,"Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
