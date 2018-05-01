@@ -13,6 +13,10 @@
   <name>IRCBot for Jenkins</name>
   <url>https://github.com/jenkins-infra/ircbot</url>
 
+  <properties>
+    <java.level>8</java.level>
+  </properties>
+
   <licenses>
       <license>
           <name>MIT License</name>
