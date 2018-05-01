@@ -5,9 +5,10 @@ import com.atlassian.jira.rest.client.api.IssueRestClient;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.RestClientException;
 import com.atlassian.jira.rest.client.api.domain.AssigneeType;
-import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.BasicComponent;
 import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Component;
+import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Transition;
 import com.atlassian.jira.rest.client.api.domain.input.ComplexIssueInputFieldValue;
 import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
@@ -148,7 +149,7 @@ public class IrcBotImpl extends PircBot {
      * Handles direct commands coming to the bot.
      * The handler presumes the external trimming of the payload.
      */
-    private void handleDirectCommand(String channel, String sender, String login, String hostname, String payload) {
+    void handleDirectCommand(String channel, String sender, String login, String hostname, String payload) {
         Matcher m;
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
@@ -251,6 +252,12 @@ public class IrcBotImpl extends PircBot {
             return;
         }
 
+        m = Pattern.compile("(?:list) (?:the )?(?:components) (?:for) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            listComponentsForUser(channel,sender,m.group(1));
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -322,6 +329,43 @@ public class IrcBotImpl extends PircBot {
 
         kick(channel, target);
         sendMessage(channel, "Kicked user " + target);
+    }
+
+    void listComponentsForUser(String channel, String sender, String username) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        JiraRestClient client = null;
+        List<String> userComponents = new ArrayList<String>();
+
+        try {
+            client = JiraHelper.createJiraClient();
+            com.atlassian.jira.rest.client.api.domain.User user = client.getUserClient().getUser(username).claim();
+
+            Iterable<BasicComponent> components = client.getProjectClient().getProject(IrcBotConfig.JIRA_DEFAULT_PROJECT).claim().getComponents();
+            for(BasicComponent b : components) {
+               if(b instanceof Component) {
+                    Component c = (Component)b;
+                    if(c.getLead().equals(user)) {
+                        userComponents.add(c.getName());
+                    }
+               }
+            }
+            if(userComponents.isEmpty()) {
+                sendMessage(channel, "User " + username + " is not the default assignee for any components in the issue tracker");
+            } else {
+                sendMessage(channel, "User " + username + " is default assignee of the following components in the issue tracker: " + String.join(", ", userComponents));
+            }
+        } catch(Exception e) {
+            e.printStackTrace();
+            sendMessage(channel,"Failed retrieving list of components for " + username + ". " + e.getMessage());
+        } finally {
+            if(!JiraHelper.close(client)) {
+                sendMessage(channel,"Failed to close JIRA client, possible leaked file descriptors");
+            }
+        }
     }
 
     private void setupHosting(String channel, String sender, String hostingId, String defaultForkTo) {
