@@ -944,12 +944,14 @@ public class IrcBotImpl extends PircBot {
         System.out.println("GitHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
         bot.connect(IrcBotConfig.SERVER);
         bot.setVerbose(true);
-        for (String channel : IrcBotConfig.getChannels()) {
-            bot.joinChannel(channel);
-        }
         if (args.length>0) {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
+            TimeUnit.SECONDS.sleep(5);
+        }
+
+        for (String channel : IrcBotConfig.getChannels()) {
+            bot.joinChannel(channel);
         }
     }
 
