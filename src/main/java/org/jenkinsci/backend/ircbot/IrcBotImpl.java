@@ -947,7 +947,7 @@ public class IrcBotImpl extends PircBot {
         if (args.length>0) {
             System.out.println("Authenticating with NickServ");
             bot.sendMessage("nickserv","identify "+args[0]);
-            TimeUnit.SECONDS.sleep(5);
+            TimeUnit.SECONDS.sleep(30);
         }
 
         for (String channel : IrcBotConfig.getChannels()) {
