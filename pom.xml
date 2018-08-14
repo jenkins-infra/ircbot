@@ -28,7 +28,7 @@
         <configuration>
           <archive>
             <manifest>
-              <mainClass>org.jenkinsci.backend.ircbot.IrcBotImpl</mainClass>
+              <mainClass>org.jenkinsci.backend.ircbot.IrcListener</mainClass>
               <classpathPrefix>lib</classpathPrefix>
               <addClasspath>true</addClasspath>
             </manifest>
@@ -49,6 +49,14 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>8</source>
+          <target>8</target>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   
@@ -59,9 +67,9 @@
       <version>2.1</version>
     </dependency>
     <dependency>
-      <groupId>pircbot</groupId>
-      <artifactId>pircbot</artifactId>
-      <version>1.4.2</version>
+      <groupId>org.pircbotx</groupId>
+      <artifactId>pircbotx</artifactId>
+      <version>2.0.1</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -103,6 +111,11 @@
       <artifactId>mockito-all</artifactId>
       <version>1.10.19</version>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.findbugs</groupId>
+      <artifactId>annotations</artifactId>
+      <version>3.0.0</version>
     </dependency>
   </dependencies>
 
