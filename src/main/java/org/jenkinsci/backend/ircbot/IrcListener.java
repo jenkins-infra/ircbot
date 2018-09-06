@@ -297,7 +297,7 @@ public class IrcListener extends ListenerAdapter {
             out.message("You're welcome");
         }
         else if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
-            out.message("Hello " + sender + "!");
+            out.message("Hello " + sender.getNick() + "!");
         }
         else if(random.nextInt(3)==0) {
             out.message("Wut?");
@@ -407,7 +407,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // update the issue with information on next steps
-            String msg = "At the request of " + sender + " on IRC, "
+            String msg = "At the request of " + sender.getNick() + " on IRC, "
                     + "the code has been forked into the jenkinsci project on GitHub as "
                     + "https://github.com/jenkinsci/" + forkTo
                     + "\n\nA JIRA component named " + forkTo + " has also been created with "
