@@ -1,6 +1,5 @@
 package org.jenkinsci.backend.ircbot;
 
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
@@ -9,12 +8,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nonnull;
 
 /**
- * Stores configurations of {@link IrcBotImpl}.
+ * Stores configurations of {@link IrcListener}.
  * This class has been created to achieve the better IRC Bot flexibility according to INFRA-146.
  * @author Oleg Nenashev <o.v.nenashev@gmail.com>
  */
