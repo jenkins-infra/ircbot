@@ -921,12 +921,8 @@ public class IrcListener extends ListenerAdapter {
      * Fix up the repository set up to our policy.
      */
     private void setupRepository(GHRepository r) throws IOException {
-        r.setEmailServiceHook(IrcBotConfig.GITHUB_POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
-        r.createHook(IrcBotConfig.IRC_HOOK_NAME,
-                IrcBotConfig.getIRCHookConfig(), (Collection<GHEvent>) null,
-                true);
     }
 
     /**
