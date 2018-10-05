@@ -921,12 +921,15 @@ public class IrcListener extends ListenerAdapter {
      * Fix up the repository set up to our policy.
      */
     private void setupRepository(GHRepository r) throws IOException {
-        r.setEmailServiceHook(IrcBotConfig.GITHUB_POST_COMMIT_HOOK_EMAIL);
+        // GitHub Services is being deprecated in favor of straight up webhooks
+        // so we can't add these services to new repositories.
+        // See https://developer.github.com/v3/guides/replacing-github-services/
+        //r.setEmailServiceHook(IrcBotConfig.GITHUB_POST_COMMIT_HOOK_EMAIL);
         r.enableIssueTracker(false);
         r.enableWiki(false);
-        r.createHook(IrcBotConfig.IRC_HOOK_NAME,
-                IrcBotConfig.getIRCHookConfig(), (Collection<GHEvent>) null,
-                true);
+//        r.createHook(IrcBotConfig.IRC_HOOK_NAME,
+//                IrcBotConfig.getIRCHookConfig(), (Collection<GHEvent>) null,
+//                true);
     }
 
     /**
