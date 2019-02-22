@@ -14,18 +14,27 @@ import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.pircbotx.*;
-import org.pircbotx.cap.SASLCapHandler;
-import org.pircbotx.hooks.ListenerAdapter;
-import org.pircbotx.hooks.events.MessageEvent;
-import org.kohsuke.github.GHEvent;
+
+
+import org.kohsuke.github.GHContentBuilder;
+import org.kohsuke.github.GHContentUpdateResponse;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHOrganization.Permission;
+import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
+import org.pircbotx.Channel;
+import org.pircbotx.Configuration;
+import org.pircbotx.PircBotX;
+import org.pircbotx.User;
+import org.pircbotx.UserLevel;
+import org.pircbotx.cap.SASLCapHandler;
+import org.pircbotx.hooks.ListenerAdapter;
+import org.pircbotx.hooks.events.MessageEvent;
 import org.pircbotx.output.OutputChannel;
 import org.pircbotx.output.OutputIRC;
 
@@ -64,7 +73,10 @@ import javax.annotation.CheckForNull;
 public class IrcListener extends ListenerAdapter {
     private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+    private static final String GITHUB_USER_LIST_JIRA_FIELD = "customfield_10323";
+    private static final String RELEASE_USER_LIST_JIRA_FIELD = "";
+    private static final String ARTIFACT_PATH_JIRA_FIELD = "";
+
     private static final String DONE_JIRA_RESOLUTION_NAME = "Done";
 
     /**
@@ -358,7 +370,8 @@ public class IrcListener extends ListenerAdapter {
             final IssueRestClient issueClient = client.getIssueClient();
             final Issue issue = JiraHelper.getIssue(client, issueID);
 
-            List<String> users = new ArrayList<String>();
+            List<String> githubUsers = new ArrayList<>();
+            List<String> releaseUsers = new ArrayList<>();
 
             final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
             if (reporter == null) {
@@ -369,14 +382,22 @@ public class IrcListener extends ListenerAdapter {
             String defaultAssignee = reporter != null ? reporter.getName() : "";
 
             String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
-            String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
-            for (String u : userList.split("\\n")) {
+            String githubUserList = JiraHelper.getFieldValueOrDefault(issue, GITHUB_USER_LIST_JIRA_FIELD, "");
+            for (String u : githubUserList.split("\\n")) {
                 if(StringUtils.isNotBlank(u))
-                    users.add(u.trim());
+                    githubUsers.add(u.trim());
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
 
-            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
+            String releaseUserList = JiraHelper.getFieldValueOrDefault(issue, RELEASE_USER_LIST_JIRA_FIELD, "");
+            for (String u : releaseUserList.split("\\n")) {
+                if(StringUtils.isNotBlank(u))
+                    releaseUsers.add(u.trim());
+            }
+
+            String artifactPath = JiraHelper.getFieldValueOrDefault(issue, ARTIFACT_PATH_JIRA_FIELD, "");
+
+            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || githubUsers.isEmpty() || releaseUsers.isEmpty() || StringUtils.isBlank(artifactPath)) {
                 out.message("Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
@@ -394,7 +415,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // add the users to the repo
-            for(String user : users) {
+            for(String user : githubUsers) {
                 if(StringUtils.isNotBlank(user) && !addGitHubCommitter(channel,sender,user,forkTo)) {
                     out.message("Hosting request failed to add "+user+" as committer, continuing anyway");
                 }
@@ -404,6 +425,10 @@ public class IrcListener extends ListenerAdapter {
             if(!createComponent(channel,sender,forkTo,defaultAssignee)) {
                 out.message("Hosting request failed to create component "+forkTo+" in JIRA");
                 return;
+            }
+
+            if(!createUploadPermissionPR(channel,sender,issueID,forkTo,releaseUsers,artifactPath)) {
+                out.message("Could not create upload permission pull request");
             }
 
             // update the issue with information on next steps
@@ -557,6 +582,53 @@ public class IrcListener extends ListenerAdapter {
         }
 
         return result;
+    }
+
+    boolean createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> releaseUsers, String artifactPath) {
+        try {
+            String branchName = forkTo + "-permissions";
+            GitHub github = GitHub.connect();
+            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
+            GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
+            boolean isPlugin = forkTo.endsWith("-plugin");
+
+            try {
+                repo.getBranch(branchName);
+            } catch(IOException e) {
+                repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
+            }
+
+            GHContentBuilder builder = repo.createContent();
+            builder = builder.branch(branchName).message("Adding upload permissions file for " + forkTo);
+            if(isPlugin) {
+                String name = forkTo.replace("-plugin", "");
+                String content = "---\n" +
+                        "name: \"" + name + "\"\n" +
+                        "github: \"jenkinsci/" + forkTo + "\"\n" +
+                        "paths:\n" +
+                        "- \"" + artifactPath + "\"\n" +
+                        "developers:\n";
+                for(String u : releaseUsers) {
+                    content += "- \"" + u + "\"\n";
+                }
+
+                builder = builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml");
+            } else {
+                channel.send().message("Can only create PR's for plugin permissions at this time");
+                return false;
+            }
+
+            GHContentUpdateResponse res = builder.commit();
+
+            String prMessage = IOUtils.toString(getClass().getResourceAsStream("/permissions-repo-template.md")).replace("__FORKTO", forkTo).replace("__JIRA_HOSTING_KEY", jiraIssue);
+            GHPullRequest pr = repo.createPullRequest("Add upload permissions for "  + forkTo, branchName, repo.getDefaultBranch(), prMessage);
+            channel.send().message("Create PR for repository updater: " + pr.getUrl());
+        } catch(IOException e) {
+            channel.send().message("Error creating PR: " + e.getMessage());
+        } catch(Exception e) {
+            channel.send().message("Error creating PR: " + e.getMessage());
+        }
+        return true;
     }
 
     /**
