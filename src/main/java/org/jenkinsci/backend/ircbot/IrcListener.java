@@ -437,6 +437,8 @@ public class IrcListener extends ListenerAdapter {
                     + "https://github.com/jenkinsci/" + forkTo
                     + "\n\nA JIRA component named " + forkTo + " has also been created with "
                     + defaultAssignee + " as the default assignee for issues."
+                    + "\n\nA pull request has been created against the repository permissions updater to"
+                    + "setup upload permissions for those you specified in the release user list."
                     + "\n\nPlease remove your original repository so that the jenkinsci repository "
                     + "is the definitive source for the code. Also, please make sure you have "
                     + "a wiki page set up with the following guidelines in mind: \n\n"
@@ -444,7 +446,6 @@ public class IrcListener extends ListenerAdapter {
                     + "* [Reference the wiki page from your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-AddingyourWikipagetoyourrepo]\n"
                     + "\n\nYou will also need to do the following in order to push changes and release your plugin: \n\n"
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
-                    + "* [Request upload permission|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Requestuploadpermissions]\n"
                     + "* [Releasing your plugin|https://wiki.jenkins-ci.org/display/JENKINS/Hosting+Plugins#HostingPlugins-Releasingtojenkins-ci.org]\n"
                     + "\n\nIn order for your plugin to be built by the [Jenkins CI Infrastructure|https://ci.jenkins.io] and check pull requests,"
                     + " please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root of your repository with the following content:\n"
