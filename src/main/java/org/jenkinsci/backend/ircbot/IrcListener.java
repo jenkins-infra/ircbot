@@ -15,11 +15,11 @@ import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
 import org.apache.commons.lang.StringUtils;
+import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
 import org.pircbotx.*;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
-import org.kohsuke.github.GHEvent;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHRepository;
@@ -292,19 +292,9 @@ public class IrcListener extends ListenerAdapter {
     }
 
     private void sendFallbackMessage(Channel channel, String payload, User sender) {
+
         OutputChannel out = channel.send();
-        if(StringUtils.containsIgnoreCase(payload, "thank")) {
-            out.message("You're welcome");
-        }
-        else if(StringUtils.startsWithIgnoreCase(payload, "hello")) {
-            out.message("Hello " + sender.getNick() + "!");
-        }
-        else if(random.nextInt(3)==0) {
-            out.message("Wut?");
-        }
-        else {
-            out.message("I didn't understand the command");
-        }
+        out.message(new FallbackMessage(payload, sender).answer());
     }
 
     /**
