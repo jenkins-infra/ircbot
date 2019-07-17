@@ -22,6 +22,9 @@ public class FallbackMessage {
         if (StringUtils.containsIgnoreCase(payload, "thank")) {
             return new WeightedRandomAnswer()
                     .addAnswer("You're welcome", 5)
+                    .addAnswer("my pleasure", 3)
+                    .addAnswer("no worries, mate", 2)
+                    .addAnswer("no drama, mate", 1) // https://www.daytranslations.com/blog/2013/01/australian-slang-a-unique-way-of-saying-and-describing-things-524/
                     .get();
         }
 
@@ -30,8 +33,11 @@ public class FallbackMessage {
         }
 
         return new WeightedRandomAnswer()
-                .addAnswer("I didn't understand the command", 3)
-                .addAnswer("Wut?", 1)
+                .addAnswer("I didn't understand the command", 4)
+                .addAnswer("Say it again?", 3)
+                .addAnswer("Come again?", 2)
+                .addAnswer("Wut?", 2)
+                .addAnswer("Gnih?", 1)
                 .get();
     }
 
