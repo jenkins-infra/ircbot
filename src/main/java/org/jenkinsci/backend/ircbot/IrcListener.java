@@ -178,15 +178,15 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?ers?|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),m.group(2));
+            addGitHubCommitters(channel,sender,Collections.singletonList(m.group(1)),m.group(2));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make) (\\S+(?:,\\s*(?:\\S+))*) (?:committ?ers) (?:of|on) (\\S+)", CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),null);
+            addGitHubCommitters(channel,sender,Arrays.asList(m.group(1).split("\\s*,\\s*")),m.group(2));
             return;
         }
 
@@ -384,10 +384,8 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // add the users to the repo
-            for(String user : users) {
-                if(StringUtils.isNotBlank(user) && !addGitHubCommitter(channel,sender,user,forkTo)) {
-                    out.message("Hosting request failed to add "+user+" as committer, continuing anyway");
-                }
+            if(users.size() > 0) {
+                addGitHubCommitters(channel,sender,users,forkTo);
             }
 
             // create the JIRA component
@@ -734,45 +732,49 @@ public class IrcListener extends ListenerAdapter {
      * @param justForThisRepo
      *      Null to add to add the default team ("Everyone"), otherwise add him to a team specific repository.
      */
-    private boolean addGitHubCommitter(Channel channel, User sender, String collaborator, String justForThisRepo) {
-        boolean result = false;
+    private boolean addGitHubCommitters(Channel channel, User sender, List<String> collaborators, String justForThisRepo) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return false;
         }
         OutputChannel out = channel.send();
+        if (justForThisRepo == null) {
+            // legacy command
+            out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
+            return false;
+        }
+
+        int passCount = 0;
         try {
-            if (justForThisRepo == null) {
-                // legacy command
-                out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
-                return false;
-            }
             GitHub github = GitHub.connect();
-            GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-            
-            final GHTeam t;
-                GHRepository forThisRepo = o.getRepository(justForThisRepo);
-                 if (forThisRepo == null) {
-                     out.message("Could not find repository:  "+justForThisRepo);
-                     return false;
-                 }
-                 t = getOrCreateRepoLocalTeam(o, forThisRepo);
-                
-            if (t==null) {
-                out.message("No team for "+justForThisRepo);
+            GHRepository forThisRepo = o.getRepository(justForThisRepo);
+            if (forThisRepo == null) {
+                out.message("Could not find repository:  " + justForThisRepo);
                 return false;
             }
 
-            t.add(c);
-            String successMsg = "Added "+collaborator+" as a GitHub committer for repository " + justForThisRepo;
-            out.message(successMsg);
-            result = true;
-        } catch (IOException e) {
-            out.message("Failed to add user to team: "+e.getMessage());
-            e.printStackTrace();
+            for (String collaborator : collaborators) {
+                try {
+                    GHUser c = github.getUser(collaborator);
+                    final GHTeam t;
+                    t = getOrCreateRepoLocalTeam(o, forThisRepo);
+                    if (t == null) {
+                        out.message("No team for " + justForThisRepo);
+                        continue;
+                    }
+
+                    t.add(c);
+                    out.message("Added "+collaborator+" as a GitHub committer for repository "+justForThisRepo);
+                    passCount++;
+                } catch (IOException e) {
+                    out.message("Failed to add user '" + collaborator + "' to team: " + e.getMessage());
+                }
+            }
+        } catch(IOException e) {
+            out.message("Error communicating with GitHub: "+e.getMessage());
         }
-        return result;
+        return passCount == collaborators.size();
     }
 
     private void renameGitHubRepo(Channel channel, User sender, String repo, String newName) {
