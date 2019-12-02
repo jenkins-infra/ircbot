@@ -178,7 +178,7 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?ers?|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addGitHubCommitters(channel,sender,Collections.singletonList(m.group(1)),m.group(2));
             return;
