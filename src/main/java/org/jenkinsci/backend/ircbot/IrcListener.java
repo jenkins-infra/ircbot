@@ -384,7 +384,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // add the users to the repo
-            if(users.size() > 0) {
+            if(!users.isEmpty()) {
                 addGitHubCommitters(channel,sender,users,forkTo);
             }
 
