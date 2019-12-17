@@ -740,7 +740,7 @@ public class IrcListener extends ListenerAdapter {
         OutputChannel out = channel.send();
         if (justForThisRepo == null) {
             // legacy command
-            out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
+            out.message("I'm no longer managing the Everyone team. Please add committers to specific repos.");
             return false;
         }
 
