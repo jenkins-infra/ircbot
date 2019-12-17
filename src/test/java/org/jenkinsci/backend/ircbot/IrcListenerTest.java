@@ -333,7 +333,7 @@ public class IrcListenerTest extends TestCase {
 
         MessageEvent<?> event = mock(MessageEvent.class);
         when(event.getChannel()).thenReturn(chan);
-        when(event.getMessage()).thenReturn("jenkins-admin: make "+String.join(",  ", newCommitters)+" committers on "+repoName);
+        when(event.getMessage()).thenReturn("jenkins-admin: make new-committer1, new-committer2, new-committer3 committers on " + repoName);
         when(event.getUser()).thenReturn(sender);
 
         PircBotX bot = mock(PircBotX.class);
