@@ -19,7 +19,7 @@
           <url>http://www.opensource.org/licenses/mit-license.php</url>
           <distribution>repo</distribution>
       </license>
-  </licenses>	
+  </licenses>
 
   <build>
     <plugins>
@@ -66,7 +66,7 @@
       </plugin>
     </plugins>
   </build>
-  
+
   <dependencies>
     <dependency>
       <groupId>org.jenkins-ci</groupId>
@@ -86,7 +86,8 @@
     <dependency>
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
-      <version>1.89</version>
+      <classifier>shaded</classifier>
+      <version>1.104-SNAPSHOT</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci</groupId>
