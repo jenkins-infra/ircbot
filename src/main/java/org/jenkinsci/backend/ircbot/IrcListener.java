@@ -192,6 +192,18 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(maintainer) on (.*)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            makeGitHubTeamMaintainer(channel, sender, m.group(1), m.group(4));
+            return;
+        }
+
+        m = Pattern.compile("(?:make) (.*) team visible",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            makeGitHubTeamVisible(channel, sender, m.group(1));
+            return;
+        }
+
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
@@ -726,6 +738,76 @@ public class IrcListener extends ListenerAdapter {
             out.message("Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Makes GitHub team visible.
+     *
+     * @param team
+     *      team to make visible
+     */
+    private boolean makeGitHubTeamVisible(Channel channel, User sender, String team) {
+        boolean result = false;
+        if (!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+        OutputChannel out = channel.send();
+        try {
+            GitHub github = GitHub.connect();
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            final GHTeam ghTeam = o.getTeamByName(team);
+            if (ghTeam == null) {
+                out.message("No team for " + team);
+                return false;
+            }
+
+            ghTeam.setPrivacy(GHTeam.Privacy.CLOSED);
+
+            String successMsg = "Made GitHub team " + team + " visible";
+            out.message(successMsg);
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to make GitHub team " + team + " visible: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * Makes a user a maintainer of a GitHub team
+     *
+     * @param team
+     *      make user a maintainer of a team.
+     */
+    private boolean makeGitHubTeamMaintainer(Channel channel, User sender, String newTeamMaintainer, String team) {
+        boolean result = false;
+        if (!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+        OutputChannel out = channel.send();
+        try {
+            GitHub github = GitHub.connect();
+            GHUser c = github.getUser(newTeamMaintainer);
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            final GHTeam ghTeam = o.getTeamByName(team);
+            if (ghTeam == null) {
+                out.message("No team for " + team);
+                return false;
+            }
+
+            ghTeam.add(c, GHTeam.Role.MAINTAINER);
+            String successMsg = "Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team;
+            out.message(successMsg);
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to make user maintainer of team: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
     }
 
     /**
