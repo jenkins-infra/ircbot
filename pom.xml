@@ -87,7 +87,7 @@
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
       <classifier>shaded</classifier>
-      <version>1.104-SNAPSHOT</version>
+      <version>1.105</version>
     </dependency>
     <dependency>
       <groupId>org.jenkins-ci</groupId>

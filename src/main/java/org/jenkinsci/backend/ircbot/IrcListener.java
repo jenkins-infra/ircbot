@@ -16,8 +16,8 @@ import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
-import org.kohsuke.github.GHCreateTeamBuilder;
 import org.kohsuke.github.GHOrganization.Permission;
+import org.kohsuke.github.GHTeamBuilder;
 import org.pircbotx.*;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
@@ -54,7 +54,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
 import javax.annotation.CheckForNull;
 
@@ -1001,9 +1000,9 @@ public class IrcListener extends ListenerAdapter {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
         if (t==null) {
-            GHCreateTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
+            GHTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
             if (githubUserName != null) {
-                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(singletonList(githubUserName));
+                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(githubUserName);
             }
             t = ghCreateTeamBuilder.create();
             t.add(r, Permission.ADMIN); // make team an admin on the given repository
