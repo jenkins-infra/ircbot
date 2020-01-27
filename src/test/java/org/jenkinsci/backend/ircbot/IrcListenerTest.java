@@ -21,6 +21,8 @@ import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import static java.util.Collections.emptyList;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -67,7 +69,7 @@ public class IrcListenerTest extends TestCase {
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
 
-        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName));
+        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
     }
 
     public void testForkOriginSameNameAsExisting() throws Exception {
@@ -115,8 +117,6 @@ public class IrcListenerTest extends TestCase {
         GHTeam t = mock(GHTeam.class);
         Mockito.doNothing().when(t).add(user);
 
-        when(gho.createTeam("some-new-name Developers", GHOrganization.Permission.ADMIN, newRepo)).thenReturn(t);
-
         System.setProperty("ircbot.testSuperUser", botUser);
 
         IrcListener ircListener = new IrcListener(null);
@@ -132,7 +132,7 @@ public class IrcListenerTest extends TestCase {
         ImmutableSortedSet.Builder<UserLevel> builder = ImmutableSortedSet.naturalOrder();
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
-        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName));
+        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
     }
 
     public void testForkOriginSameNameAsRenamed() throws Exception {
@@ -180,13 +180,11 @@ public class IrcListenerTest extends TestCase {
         GHTeamBuilder teamBuilder = mock(GHTeamBuilder.class);
 
         when(gho.createTeam("some-new-name Developers")).thenReturn(teamBuilder);
+        when(teamBuilder.maintainers(any())).thenReturn(teamBuilder);
         when(teamBuilder.privacy(GHTeam.Privacy.CLOSED)).thenReturn(teamBuilder);
 
         GHTeam t = mock(GHTeam.class);
         when(teamBuilder.create()).thenReturn(t);
-
-        Mockito.doNothing().when(t).add(user);
-
         Mockito.doNothing().when(t).add(newRepo, GHOrganization.Permission.ADMIN);
 
         System.setProperty("ircbot.testSuperUser", botUser);
@@ -204,6 +202,6 @@ public class IrcListenerTest extends TestCase {
         ImmutableSortedSet.Builder<UserLevel> builder = ImmutableSortedSet.naturalOrder();
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
-        assertTrue(ircListener.forkGitHub(chan, sender, owner, from, repoName));
+        assertTrue(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
     }
 }

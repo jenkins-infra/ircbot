@@ -54,6 +54,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
 import javax.annotation.CheckForNull;
 
@@ -169,7 +171,7 @@ public class IrcListener extends ListenerAdapter {
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3));
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList());
             return;
         }
 
@@ -387,20 +389,13 @@ public class IrcListener extends ListenerAdapter {
             // Parse forkFrom in order to determine original repo owner and repo name
             Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
             if (m.matches()) {
-                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo)) {
+                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo, users)) {
                     out.message("Hosting request failed to fork repository on Github");
                     return;
                 }
             } else {
                 out.message("ERROR: Cannot parse the source repo: " + forkFrom);
                 return;
-            }
-
-            // add the users to the repo
-            for(String user : users) {
-                if(StringUtils.isNotBlank(user) && !addGitHubCommitter(channel,sender,user,forkTo)) {
-                    out.message("Hosting request failed to add "+user+" as committer, continuing anyway");
-                }
             }
 
             // create the JIRA component
@@ -730,7 +725,7 @@ public class IrcListener extends ListenerAdapter {
             GHRepository r = org.createRepository(name).private_(false).create();
             setupRepository(r);
 
-            GHTeam t = getOrCreateRepoLocalTeam(org, r, collaborator);
+            getOrCreateRepoLocalTeam(org, r, singletonList(collaborator));
 
             out.message("New github repository created at "+r.getUrl());
         } catch (IOException e) {
@@ -887,7 +882,7 @@ public class IrcListener extends ListenerAdapter {
      * @param newName
      *      If not null, rename a repository after a fork.
      */
-    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName) {
+    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName, List<String> maintainers) {
         boolean result = false;
         OutputChannel out = channel.send();
         try {
@@ -957,7 +952,7 @@ public class IrcListener extends ListenerAdapter {
             Set<GHTeam> legacyTeams = r.getTeams();
 
             try {
-                GHTeam t = getOrCreateRepoLocalTeam(org, r, user.getName());
+                getOrCreateRepoLocalTeam(org, r, maintainers.isEmpty() ? singletonList(user.getName()) : maintainers);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
@@ -996,13 +991,13 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Creates a repository local team, and grants access to the repository.
      */
-    private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r, @CheckForNull String githubUserName) throws IOException {
+    private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r, List<String> githubUsers) throws IOException {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
         if (t==null) {
             GHTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
-            if (githubUserName != null) {
-                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(githubUserName);
+            if (!githubUsers.isEmpty()) {
+                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(githubUsers.toArray(new String[0]));
             }
             t = ghCreateTeamBuilder.create();
             t.add(r, Permission.ADMIN); // make team an admin on the given repository
