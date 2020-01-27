@@ -6,6 +6,7 @@ import org.junit.runner.RunWith;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
+import org.kohsuke.github.GHTeamBuilder;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
 import org.mockito.Mockito;
@@ -176,10 +177,16 @@ public class IrcListenerTest extends TestCase {
             }
         }).when(newRepo).renameTo(repoName);
 
+        GHTeamBuilder teamBuilder = mock(GHTeamBuilder.class);
+
+        when(gho.createTeam("some-new-name Developers")).thenReturn(teamBuilder);
+        when(teamBuilder.privacy(GHTeam.Privacy.CLOSED)).thenReturn(teamBuilder);
+
         GHTeam t = mock(GHTeam.class);
+        when(teamBuilder.create()).thenReturn(t);
+
         Mockito.doNothing().when(t).add(user);
 
-        when(gho.createTeam("some-new-name Developers", GHOrganization.Permission.PULL, newRepo)).thenReturn(t);
         Mockito.doNothing().when(t).add(newRepo, GHOrganization.Permission.ADMIN);
 
         System.setProperty("ircbot.testSuperUser", botUser);
