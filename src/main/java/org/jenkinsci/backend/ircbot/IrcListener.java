@@ -833,7 +833,7 @@ public class IrcListener extends ListenerAdapter {
                      out.message("Could not find repository:  "+justForThisRepo);
                      return false;
                  }
-                 t = getOrCreateRepoLocalTeam(o, forThisRepo, null);
+                 t = getOrCreateRepoLocalTeam(o, forThisRepo, emptyList());
 
             if (t==null) {
                 out.message("No team for "+justForThisRepo);
