@@ -922,12 +922,8 @@ public class IrcListener extends ListenerAdapter {
         GHTeam t = org.getTeams().get(teamName);
         if (t==null) {
             t = org.createTeam(teamName, Permission.PULL, r);
-            t.add(r, Permission.ADMIN); // make team an admin on the given repository
-        } else {
-            if (!t.getRepositories().containsValue(r)) {
-                t.add(r);
-            }
         }
+        t.add(r, Permission.ADMIN); // make team an admin on the given repository, always do in case the config is wrong
         return t;
     }
 
