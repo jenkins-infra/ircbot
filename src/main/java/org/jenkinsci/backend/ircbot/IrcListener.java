@@ -383,7 +383,7 @@ public class IrcListener extends ListenerAdapter {
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
 
-            String releaseUserList = JiraHelper.getFieldValueOrDefault(issue, RELEASE_USER_LIST_JIRA_FIELD, "");
+            String releaseUserList = JiraHelper.getFieldValueOrDefault(issue, RELEASE_USER_LIST_JIRA_FIELD, defaultAssignee);
             for (String u : releaseUserList.split("\\n")) {
                 if(StringUtils.isNotBlank(u))
                     releaseUsers.add(u.trim());
