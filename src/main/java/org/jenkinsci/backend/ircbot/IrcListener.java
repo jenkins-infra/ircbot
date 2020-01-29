@@ -14,6 +14,11 @@ import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
 import org.kohsuke.github.GHOrganization.Permission;
@@ -35,9 +40,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
@@ -298,8 +301,8 @@ public class IrcListener extends ListenerAdapter {
         sendFallbackMessage(channel, payload, sender);
 
         try {
-            PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
-            w.println(payload);
+            Writer w = new OutputStreamWriter(new FileOutputStream(unknownCommands), StandardCharsets.UTF_8);
+            w.append(payload);
             w.close();
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
@@ -319,6 +322,10 @@ public class IrcListener extends ListenerAdapter {
      * another one. We've seen for some reasons sometimes jenkins-admin loses its +o flag,
      * and when that happens a restart fixes it quickly.
      */
+    @SuppressFBWarnings(
+            value="DM_EXIT",
+            justification="Intentionally restarting the app"
+    )
     private void restart(Channel channel, User sender) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
@@ -541,7 +548,6 @@ public class IrcListener extends ListenerAdapter {
             final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT,
                     new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
             final Component component = JiraHelper.wait(createComponent);
-            component.getSelf();
             out.message("New component created. URL is " + component.getSelf().toURL());
             result = true;
         } catch (Exception e) {
@@ -826,18 +832,13 @@ public class IrcListener extends ListenerAdapter {
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
 
             final GHTeam t;
-                GHRepository forThisRepo = o.getRepository(justForThisRepo);
-                 if (forThisRepo == null) {
-                     out.message("Could not find repository:  "+justForThisRepo);
-                     return false;
-                 }
-                 t = getOrCreateRepoLocalTeam(o, forThisRepo, emptyList());
-
-            if (t==null) {
-                out.message("No team for "+justForThisRepo);
+            GHRepository forThisRepo = o.getRepository(justForThisRepo);
+            if (forThisRepo == null) {
+                out.message("Could not find repository:  "+justForThisRepo);
                 return false;
             }
 
+            t = getOrCreateRepoLocalTeam(o, forThisRepo);
             t.add(c);
             out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
             result = true;
