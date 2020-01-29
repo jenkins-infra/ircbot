@@ -759,8 +759,7 @@ public class IrcListener extends ListenerAdapter {
 
             ghTeam.setPrivacy(GHTeam.Privacy.CLOSED);
 
-            String successMsg = "Made GitHub team " + team + " visible";
-            out.message(successMsg);
+            out.message("Made GitHub team " + team + " visible");
             result = true;
         } catch (IOException e) {
             out.message("Failed to make GitHub team " + team + " visible: " + e.getMessage());
@@ -794,8 +793,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             ghTeam.add(c, GHTeam.Role.MAINTAINER);
-            String successMsg = "Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team;
-            out.message(successMsg);
+            out.message("Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team);
             result = true;
         } catch (IOException e) {
             out.message("Failed to make user maintainer of team: " + e.getMessage());
@@ -841,8 +839,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             t.add(c);
-            String successMsg = "Added "+collaborator+" as a GitHub committer for repository " + justForThisRepo;
-            out.message(successMsg);
+            out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
             result = true;
         } catch (IOException e) {
             out.message("Failed to add user to team: "+e.getMessage());
