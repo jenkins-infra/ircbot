@@ -838,7 +838,7 @@ public class IrcListener extends ListenerAdapter {
                 return false;
             }
 
-            t = getOrCreateRepoLocalTeam(o, forThisRepo);
+            t = getOrCreateRepoLocalTeam(o, forThisRepo, emptyList());
             t.add(c);
             out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
             result = true;
