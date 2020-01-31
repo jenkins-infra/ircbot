@@ -911,7 +911,6 @@ public class IrcListener extends ListenerAdapter {
      * Fix up the repository set up to our policy.
      */
     private void setupRepository(GHRepository r) throws IOException {
-        r.enableIssueTracker(false);
         r.enableWiki(false);
     }
 
