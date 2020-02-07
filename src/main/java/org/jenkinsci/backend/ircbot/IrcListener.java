@@ -992,18 +992,15 @@ public class IrcListener extends ListenerAdapter {
     private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r, List<String> githubUsers) throws IOException {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
-        if (t==null) {
+        if (t == null) {
             GHTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
             if (!githubUsers.isEmpty()) {
                 ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(githubUsers.toArray(new String[0]));
             }
             t = ghCreateTeamBuilder.create();
-            t.add(r, Permission.ADMIN); // make team an admin on the given repository
-        } else {
-            if (!t.getRepositories().containsValue(r)) {
-                t.add(r);
-            }
         }
+        
+        t.add(r, Permission.ADMIN); // make team an admin on the given repository, always do in case the config is wrong
         return t;
     }
 
