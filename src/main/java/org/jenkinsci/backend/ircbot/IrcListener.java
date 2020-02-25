@@ -701,8 +701,8 @@ public class IrcListener extends ListenerAdapter {
         }
 
         OutputIRC out = channel.getBot().sendIRC();
-        out.message("CHANSERV", "flags " + channel + " " + target + " +V");
-        out.message("CHANSERV", "voice " + channel + " " + target);
+        out.message("CHANSERV", "flags " + channel.getName() + " " + target + " +V");
+        out.message("CHANSERV", "voice " + channel.getName() + " " + target);
         channel.send().message("Voice privilege (+V) added for " + target);
     }
 
@@ -713,8 +713,8 @@ public class IrcListener extends ListenerAdapter {
         }
 
         OutputIRC out = channel.getBot().sendIRC();
-        out.message("CHANSERV", "flags " + channel + " " + target + " -V");
-        out.message("CHANSERV", "devoice " + channel + " " + target);
+        out.message("CHANSERV", "flags " + channel.getName() + " " + target + " -V");
+        out.message("CHANSERV", "devoice " + channel.getName() + " " + target);
         channel.send().message("Voice privilege (-V) removed for " + target);
     }
 
