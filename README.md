@@ -5,21 +5,20 @@
 This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [Jenkins IRC Bot Page](https://jenkins.io/projects/infrastructure/ircbot/)
 
 ## Deployment
-This repo is containerized, then deployed to our infrastructure via Puppet. 
+This repo is containerized, then deployed to our infrastructure via Helm. 
 You should have a Write permission to https://github.com/jenkins-infra/ircbot and https://github.com/jenkins-infra/jenkins-infra to deploy the new version of the Bot.
 
 Actions:
 
 1. Commit/merge changes into the master branch
 2. Wait till the preparation of Docker package on Jenkins INFRA 
- * Go to the [IRC Bot job](https://ci.jenkins.io/job/Infra/job/ircbot/job/master) on https://ci.jenkins.io
- * Wait till the automatic build finishes with a SUCCESS status
-4. Modify the version on Puppet infrastructure
- *  Edit your <b>local fork</b> the following file: https://github.com/jenkins-infra/jenkins-infra/blob/staging/hieradata/common.yaml#L94  
- * Change the `profile::jenkinsadmin::image_tag` variable.
-   * Format: `build${JENKINSCI_BUILD_NUMBER}`
- * Create a pull request to the main repo. Branch=staging
- * Wait till the merge of the pull request. Write to #jenkins-infra channel to request the review
+ * The container is built on the Trusted Infrastructure, the best way to determine when the new tag is ready is to look at dockerhub tags
+ * https://hub.docker.com/r/jenkinsciinfra/ircbot/tags
+ * There should be a new tag within 30 minutes of the merge/commit to the master branch
+4. Modify the version in the Helm values.yaml file
+ * Create a PR for the https://github.com/jenkins-infra/charts/blob/master/charts/chatbot/values.yaml file
+ * Change the `tag` value to the tag from dockerhub
+ * Wait till the merge of the pull request.
 5. Wait till the deployment. 
    it is possible to call the `jenkins-admin: version` command to check the current version
 
