@@ -56,6 +56,7 @@ import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
@@ -382,6 +383,8 @@ public class IrcListener extends ListenerAdapter {
 
             String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
             String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
+
+            out.message("Will add these users to the forked repository: "+userList.replaceAll("\\n", ", "));
             for (String u : userList.split("\\n")) {
                 if(StringUtils.isNotBlank(u))
                     users.add(u.trim());
@@ -396,7 +399,7 @@ public class IrcListener extends ListenerAdapter {
             // Parse forkFrom in order to determine original repo owner and repo name
             Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
             if (m.matches()) {
-                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo, users)) {
+                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo,users)) {
                     out.message("Hosting request failed to fork repository on Github");
                     return;
                 }
@@ -948,15 +951,37 @@ public class IrcListener extends ListenerAdapter {
 
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
+            GHTeam newTeam = null;
 
             try {
-                getOrCreateRepoLocalTeam(org, r, maintainers.isEmpty() ? singletonList(user.getName()) : maintainers);
+                // add the repo owner if there are no users specified and the repo owner is a user (not an org)
+                if(maintainers.isEmpty() && user.getType().equalsIgnoreCase("user")) {
+                    maintainers = new ArrayList<>();
+                    maintainers.add(user.getName());
+                }
+                newTeam = getOrCreateRepoLocalTeam(org, r, maintainers);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
                 // fall through
             }
 
+            // now we need to check the actual membership of the team vs those requested
+            if (newTeam != null) {
+                List<String> members = newTeam.getMembers()
+                        .stream()
+                        .map(GHUser::getLogin)
+                        .map(String::toLowerCase)
+                        .collect(Collectors.toList());
+                List<String> m = maintainers
+                        .stream()
+                        .map(String::toLowerCase)
+                        .collect(Collectors.toList());
+                m.removeAll(members);
+                if(m.size() > 0) {
+                    out.message("Failed to add "+String.join(", ", m)+" to the developers team.");
+                }
+            }
 
             setupRepository(r);
 
