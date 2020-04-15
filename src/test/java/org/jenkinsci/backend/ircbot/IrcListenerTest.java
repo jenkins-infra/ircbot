@@ -21,6 +21,8 @@ import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 
+import java.util.Collections;
+
 import static java.util.Collections.emptyList;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
@@ -153,6 +155,9 @@ public class IrcListenerTest extends TestCase {
         GHUser user = mock(GHUser.class);
         when(gh.getUser(owner)).thenReturn(user);
         when(user.getRepository(from)).thenReturn(originRepo);
+        when(user.getName()).thenReturn(owner);
+        when(user.getType()).thenReturn("User");
+        when(user.getLogin()).thenReturn(owner);
         when(originRepo.getName()).thenReturn(from);
 
         GHRepository repo = mock(GHRepository.class);
@@ -186,6 +191,7 @@ public class IrcListenerTest extends TestCase {
         GHTeam t = mock(GHTeam.class);
         when(teamBuilder.create()).thenReturn(t);
         Mockito.doNothing().when(t).add(newRepo, GHOrganization.Permission.ADMIN);
+        when(t.getMembers()).thenReturn(Collections.singleton(user));
 
         System.setProperty("ircbot.testSuperUser", botUser);
 
