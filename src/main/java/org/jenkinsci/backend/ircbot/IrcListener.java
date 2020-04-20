@@ -19,6 +19,8 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
 import org.kohsuke.github.GHOrganization.Permission;
@@ -52,11 +54,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
@@ -437,7 +439,7 @@ public class IrcListener extends ListenerAdapter {
             try {
                 Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), DONE_JIRA_RESOLUTION_NAME);
                 if(transition != null) {
-                    Collection<FieldInput> inputs = Arrays.asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", DONE_JIRA_RESOLUTION_NAME)));
+                    Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", DONE_JIRA_RESOLUTION_NAME)));
                     JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
                 } else {
                     out.message("Unable to transition issue to \"" + DONE_JIRA_RESOLUTION_NAME + "\" state");
@@ -731,7 +733,7 @@ public class IrcListener extends ListenerAdapter {
             GHRepository r = org.createRepository(name).private_(false).create();
             setupRepository(r);
 
-            getOrCreateRepoLocalTeam(org, r, singletonList(collaborator));
+            getOrCreateRepoLocalTeam(out, github, org, r, singletonList(collaborator));
 
             out.message("New github repository created at "+r.getUrl());
         } catch (IOException e) {
@@ -838,7 +840,7 @@ public class IrcListener extends ListenerAdapter {
                 return false;
             }
 
-            t = getOrCreateRepoLocalTeam(o, forThisRepo, emptyList());
+            t = getOrCreateRepoLocalTeam(out, github, o, forThisRepo, emptyList());
             t.add(c);
             out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
             result = true;
@@ -950,7 +952,7 @@ public class IrcListener extends ListenerAdapter {
             Set<GHTeam> legacyTeams = r.getTeams();
 
             try {
-                getOrCreateRepoLocalTeam(org, r, maintainers.isEmpty() ? singletonList(user.getName()) : maintainers);
+                getOrCreateRepoLocalTeam(out, github, org, r, maintainers.isEmpty() ? singletonList(user.getName()) : maintainers);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
@@ -981,7 +983,7 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Fix up the repository set up to our policy.
      */
-    private void setupRepository(GHRepository r) throws IOException {
+    private static void setupRepository(GHRepository r) throws IOException {
         r.enableIssueTracker(false);
         r.enableWiki(false);
     }
@@ -989,19 +991,52 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Creates a repository local team, and grants access to the repository.
      */
-    private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r, List<String> githubUsers) throws IOException {
+    private static GHTeam getOrCreateRepoLocalTeam(OutputChannel out, GitHub github, GHOrganization org, GHRepository r, List<String> githubUsers) throws IOException {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
         if (t == null) {
             GHTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
+            List<String> maintainers = emptyList();
             if (!githubUsers.isEmpty()) {
-                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(githubUsers.toArray(new String[0]));
+                maintainers = githubUsers.stream()
+                        // in order to be added as a maintainer of a team you have to be a member of the org already
+                        .filter(user -> isMemberOfOrg(github, org, user))
+                        .collect(Collectors.toList());
+                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(maintainers.toArray(new String[0]));
             }
             t = ghCreateTeamBuilder.create();
+
+            List<String> usersNotInMaintainers = new ArrayList<>(githubUsers);
+            usersNotInMaintainers.removeAll(maintainers);
+            final GHTeam team = t;
+            usersNotInMaintainers.forEach(addUserToTeam(out, github, team));
+            // github automatically adds the user to the team who created the team, we don't want that
+            team.remove(github.getMyself());
         }
         
         t.add(r, Permission.ADMIN); // make team an admin on the given repository, always do in case the config is wrong
         return t;
+    }
+
+    private static Consumer<String> addUserToTeam(OutputChannel out, GitHub github, GHTeam team) {
+        return user -> {
+            try {
+                team.add(github.getUser(user));
+            } catch (IOException e) {
+                out.message(String.format("Failed to add user %s to team %s, error was:  %s", user, team.getName(), e.getMessage()));
+                e.printStackTrace();
+            }
+        };
+    }
+
+    private static boolean isMemberOfOrg(GitHub gitHub, GHOrganization org, String user) {
+        try {
+            GHUser ghUser = gitHub.getUser(user);
+            return org.hasMember(ghUser);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public static void main(String[] args) throws Exception {
