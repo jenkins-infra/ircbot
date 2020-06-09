@@ -1,5 +1,6 @@
 package org.jenkinsci.backend.ircbot.hosting;
 
+import java.util.Comparator;
 import java.util.HashSet;
 
 public class VerificationMessage implements Comparable<VerificationMessage> {
@@ -19,15 +20,31 @@ public class VerificationMessage implements Comparable<VerificationMessage> {
 
     @Override
     public int compareTo(VerificationMessage other) {
-        if (severity != other.getSeverity()) {
-            return severity.compareTo(other.getSeverity());
-        }
+        Comparator<HashSet<VerificationMessage>> subItemComparator = (left, right) -> {
+            if (left.size() != right.size()) {
+                return left.size() - right.size();
+            }
 
-        if (!message.equalsIgnoreCase(other.getMessage())) {
-            return message.compareTo(other.getMessage());
-        }
+            if(!left.containsAll(right)) {
+                return -1;
+            } else if(!right.containsAll(left)) {
+                return 1;
+            }
+            return 0;
+        };
 
-        return 0;
+        return Comparator.comparing(VerificationMessage::getSeverity)
+                .thenComparing(VerificationMessage::getMessage)
+                .thenComparing(VerificationMessage::getSubItems, subItemComparator)
+                .compare(this, other);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if(other instanceof VerificationMessage) {
+            return compareTo((VerificationMessage)other) == 0;
+        }
+        return false;
     }
 
     @Override

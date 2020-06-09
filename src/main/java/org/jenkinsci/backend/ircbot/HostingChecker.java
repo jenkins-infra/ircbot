@@ -17,10 +17,13 @@ import org.pircbotx.output.OutputChannel;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -103,8 +106,8 @@ public class HostingChecker {
                 out.message("Here are the results of the checking:");
                 out.message(msg.toString());
             }
-        } catch(Exception e) {
-            out.message("Error occurred during hosting check: "+e.getMessage());
+        } catch (IOException|URISyntaxException|ExecutionException|TimeoutException|InterruptedException e) {
+            out.message("Error occurred during hosting check: " + e.getMessage());
         } finally {
             if(!JiraHelper.close(client)) {
                 out.message("Failed to close JIRA client, possible leaked file descriptors");
@@ -115,9 +118,9 @@ public class HostingChecker {
     private void appendIssues(StringBuilder msg, HashSet<VerificationMessage> issues, int level) {
         for(VerificationMessage issue : issues.stream().sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
             if(level == 1) {
-                msg.append(String.format("%s {{color:%s}}%s: %s{{color}}\n", StringUtils.repeat("*", level), issue.getSeverity().getColor(), issue.getSeverity().getMessage(), issue.getMessage()));
+                msg.append(String.format("%s {{color:%s}}%s: %s{{color}}%n", StringUtils.repeat("*", level), issue.getSeverity().getColor(), issue.getSeverity().getMessage(), issue.getMessage()));
             } else {
-                msg.append(String.format("%s %s\n", StringUtils.repeat("*", level), issue.getMessage()));
+                msg.append(String.format("%s %s%n", StringUtils.repeat("*", level), issue.getMessage()));
             }
 
             if(issue.getSubItems() != null) {
