@@ -70,11 +70,6 @@ import javax.annotation.CheckForNull;
  * @author Kohsuke Kawaguchi
  */
 public class IrcListener extends ListenerAdapter {
-    private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
-    private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    private static final String USER_LIST_JIRA_FIELD = "customfield_10323";
-    private static final String DONE_JIRA_RESOLUTION_NAME = "Done";
-
     /**
      * Records commands that we didn't understand.
      */
@@ -270,13 +265,19 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:host) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:host|approve) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             String forkTo = "";
             if(m.groupCount() > 1) {
                 forkTo = m.group(2);
             }
             setupHosting(channel,sender,m.group(1),forkTo);
+            return;
+        }
+
+        m = Pattern.compile("(?:check) (?:hosting-)(\\d+)", CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            checkHosting(channel,sender,m.group(1));
             return;
         }
 
@@ -382,13 +383,13 @@ public class IrcListener extends ListenerAdapter {
             }
             String defaultAssignee = reporter != null ? reporter.getName() : "";
 
-            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
-            String userList = JiraHelper.getFieldValueOrDefault(issue, USER_LIST_JIRA_FIELD, "");
+            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_FROM_JIRA_FIELD, "");
+            String userList = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.USER_LIST_JIRA_FIELD, "");
             for (String u : userList.split("\\n")) {
                 if(StringUtils.isNotBlank(u))
                     users.add(u.trim());
             }
-            String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
+            String forkTo = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_TO_JIRA_FIELD, defaultForkTo);
 
             if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 out.message("Could not retrieve information (or information does not exist) from the HOSTING JIRA");
@@ -437,12 +438,12 @@ public class IrcListener extends ListenerAdapter {
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             try {
-                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), DONE_JIRA_RESOLUTION_NAME);
+                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), JiraHelper.DONE_JIRA_RESOLUTION_NAME);
                 if(transition != null) {
-                    Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", DONE_JIRA_RESOLUTION_NAME)));
+                    Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", JiraHelper.DONE_JIRA_RESOLUTION_NAME)));
                     JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
                 } else {
-                    out.message("Unable to transition issue to \"" + DONE_JIRA_RESOLUTION_NAME + "\" state");
+                    out.message("Unable to transition issue to \"" + JiraHelper.DONE_JIRA_RESOLUTION_NAME + "\" state");
                 }
             } catch (RestClientException e) {
                 // if the issue cannot be put into the "resolved" state
@@ -463,6 +464,20 @@ public class IrcListener extends ListenerAdapter {
                 out.message("Failed to close JIRA client, possible leaked file descriptors");
             }
         }
+    }
+
+    private void checkHosting(Channel channel, User sender, String hostingId) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        final String issueID = "HOSTING-" + hostingId;
+        channel.send().message("Checking hosting request " + issueID);
+
+        replyBugStatus(channel, issueID);
+        HostingChecker checker = new HostingChecker();
+        checker.checkRequest(channel.send(), issueID);
     }
 
     private void replyBugStatus(Channel channel, String ticket) {
@@ -495,8 +510,7 @@ public class IrcListener extends ListenerAdapter {
     }
 
     private boolean isSenderAuthorized(Channel channel, User sender, boolean acceptVoice) {
-        return sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP || (acceptVoice && e == UserLevel.VOICE)
-                        || (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick()) ));
+        return (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick())) || sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP || (acceptVoice && e == UserLevel.VOICE));
     }
 
     private void help(Channel channel) {
