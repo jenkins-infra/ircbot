@@ -69,6 +69,7 @@ public class VerificationMessage implements Comparable<VerificationMessage> {
         private int level;
 
         Severity(int level, String message, String color) {
+            this.level = level;
             this.message = message;
             this.color = color;
         }
@@ -95,6 +96,9 @@ public class VerificationMessage implements Comparable<VerificationMessage> {
     }
 
     public HashSet<VerificationMessage> getSubItems() {
+        if(subItems == null) {
+            subItems = new HashSet<VerificationMessage>();   
+        }
         return subItems;
     }
 
