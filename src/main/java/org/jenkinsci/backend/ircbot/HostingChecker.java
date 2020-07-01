@@ -118,7 +118,7 @@ public class HostingChecker {
     private void appendIssues(StringBuilder msg, HashSet<VerificationMessage> issues, int level) {
         for(VerificationMessage issue : issues.stream().sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
             if(level == 1) {
-                msg.append(String.format("%s {{color:%s}}%s: %s{{color}}%n", StringUtils.repeat("*", level), issue.getSeverity().getColor(), issue.getSeverity().getMessage(), issue.getMessage()));
+                msg.append(String.format("%s {color:%s}%s: %s{color}%n", StringUtils.repeat("*", level), issue.getSeverity().getColor(), issue.getSeverity().getMessage(), issue.getMessage()));
             } else {
                 msg.append(String.format("%s %s%n", StringUtils.repeat("*", level), issue.getMessage()));
             }
