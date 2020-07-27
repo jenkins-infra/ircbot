@@ -281,6 +281,12 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        m = Pattern.compile("(?:set) (?:topic) (.*)", CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            setTopic(channel,sender,m.group(1));
+            return;
+        }
+
         if (payload.equalsIgnoreCase("version")) {
             version(channel);
             return;
@@ -353,6 +359,14 @@ public class IrcListener extends ListenerAdapter {
                 break;
             }
         }
+    }
+
+    private void setTopic(Channel channel, User sender, String newTopic) {
+        if(!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+        channel.send().setTopic(newTopic);
     }
 
     private void setupHosting(Channel channel, User sender, String hostingId, String defaultForkTo) {
