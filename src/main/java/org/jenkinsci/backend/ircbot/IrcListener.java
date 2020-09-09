@@ -14,6 +14,7 @@ import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
+import com.google.common.base.Strings;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
@@ -23,6 +24,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
+import org.kohsuke.github.GHLabel;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
 import org.pircbotx.*;
@@ -36,6 +38,8 @@ import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
 import org.pircbotx.output.OutputChannel;
 import org.pircbotx.output.OutputIRC;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.Constructor;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -43,7 +47,9 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URL;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -57,6 +63,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
@@ -76,6 +83,25 @@ public class IrcListener extends ListenerAdapter {
     private File unknownCommands;
 
     private final Random random = new Random(System.currentTimeMillis());
+
+    private static final RepoLabels labelsYAML;
+    static {
+        try {
+            URL url = new URL("https://raw.githubusercontent.com/jenkinsci/.github/4f59a6219705df14067688df4f2a503e143cfa92/labels.yaml");
+
+            HttpURLConnection con = (HttpURLConnection) url.openConnection();
+            con.setRequestMethod("GET");
+            Yaml yaml = new Yaml(new Constructor(RepoLabels.class));
+
+            labelsYAML = yaml.load(con.getInputStream());
+            con.disconnect();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
 
     /**
      * Map from the issue number to the time it was last mentioned.
@@ -166,6 +192,12 @@ public class IrcListener extends ListenerAdapter {
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createGitHubRepository(channel, sender, m.group(1), m.group(2));
+            return;
+        }
+
+        m = Pattern.compile("add github labels to (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            addGithubLabels(channel, sender, m.group(1));
             return;
         }
 
@@ -891,6 +923,60 @@ public class IrcListener extends ListenerAdapter {
             e.printStackTrace();
         }
     }
+
+    /**
+     * @param repoName
+     *      Name of repo
+     */
+    boolean addGithubLabels(Channel channel, User sender, String repoName) {
+        boolean result = false;
+        OutputChannel out = channel.send();
+        try {
+            if (!isSenderAuthorized(channel,sender)) {
+                insufficientPermissionError(channel);
+                return false;
+            }
+
+            GitHub github = GitHub.connect();
+            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+            GHRepository repo = org.getRepository(repoName);
+            if(repo == null) {
+                out.message("Repository with name "+repoName+" does not exist "+IrcBotConfig.GITHUB_ORGANIZATION);
+                return false;
+            }
+            Map<String, GHLabel> ghLabels = repo.listLabels().asList().stream().collect(Collectors.toMap(GHLabel::getName, l -> l));
+            out.message("Setting labels for "+repoName);
+            for (RepoLabels.Label label : labelsYAML.labels) {
+                if (!Strings.isNullOrEmpty(label.oldname) && ghLabels.containsKey(label.oldname)) { // ex fix => bugfix
+                    if (ghLabels.containsKey(label.name)) {
+                        out.message("Old label of " + label.oldname + " still exists, so can't rename to " + label.name);
+                        continue;
+                    }
+                } else if (ghLabels.containsKey(label.name)) {
+                    /*
+                     * when updateLabel is published
+                     * repo.updateLabel(
+                     *  Strings.isNullOrEmpty(label.oldname) ? label.name : label.oldname,
+                     *  label.name, // newname
+                     *  label.color,
+                     *  label.description
+                     * )
+                     */
+                } else {
+                    repo.createLabel(label.name, label.color, label.description);
+                }
+            }
+            out.message("Done Setting labels for "+repoName);
+
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to set labels a repository: "+e.getMessage());
+            e.printStackTrace();
+        }
+
+        return result;
+    }
+
 
     /**
      * @param newName

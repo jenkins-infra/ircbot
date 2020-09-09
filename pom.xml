@@ -101,7 +101,7 @@
     <dependency>
       <groupId>org.kohsuke</groupId>
       <artifactId>github-api</artifactId>
-      <version>1.112</version>
+      <version>1.116</version>
     </dependency>
     <dependency>
       <groupId>org.javatuples</groupId>
@@ -163,6 +163,12 @@
       <version>3.3.3</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+      <version>1.25</version>
+    </dependency>
+
   </dependencies>
 
   <repositories>
