@@ -10,6 +10,7 @@ import org.codehaus.groovy.ast.builder.AstBuilder;
 import org.codehaus.groovy.ast.expr.*;
 import org.codehaus.groovy.ast.stmt.BlockStatement;
 import org.codehaus.groovy.ast.stmt.ExpressionStatement;
+import org.codehaus.groovy.ast.stmt.IfStatement;
 import org.codehaus.groovy.ast.stmt.Statement;
 import org.codehaus.groovy.control.CompilationFailedException;
 import org.codehaus.groovy.control.CompilePhase;
@@ -86,28 +87,31 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
 
                         BlockStatement node = (BlockStatement) nodes.get(0);
                         for (Statement s : node.getStatements()) {
-                            Expression e = ((ExpressionStatement) s).getExpression();
-                            if (e instanceof MethodCallExpression) {
-                                MethodCallExpression mc = (MethodCallExpression) e;
-                                if (mc.getMethodAsString().equals("plugins")) {
-                                    // make sure we get the correct version of the gradle jpi plugin
-                                    checkPluginVersion(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
-                                } else if (mc.getMethodAsString().equals("repositories")) {
-                                    // verify that any references to repo.jenkins-ci.org are correct
-                                    checkRepositories(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
-                                } else if (mc.getMethodAsString().equals("jenkinsPlugin")) {
-                                    // verify the things that will make it into the pom.xml that is published
-                                    checkJenkinsPlugin(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
-                                }
-                            } else if (e instanceof BinaryExpression) {
-                                BinaryExpression be = (BinaryExpression) e;
-                                VariableExpression v = (VariableExpression) be.getLeftExpression();
-                                if (v.getName().equals("group")) {
-                                    checkGroup(be.getRightExpression(), hostingIssues);
-                                } else if (v.getName().equals("targetCompatibility")) {
-                                    checkTargetCompatibility(be.getRightExpression(), hostingIssues);
+                            if (s instanceof ExpressionStatement) {
+                                Expression e = ((ExpressionStatement) s).getExpression();
+                                if (e instanceof MethodCallExpression) {
+                                    MethodCallExpression mc = (MethodCallExpression) e;
+                                    if (mc.getMethodAsString().equals("plugins")) {
+                                        // make sure we get the correct version of the gradle jpi plugin
+                                        checkPluginVersion(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
+                                    } else if (mc.getMethodAsString().equals("repositories")) {
+                                        // verify that any references to repo.jenkins-ci.org are correct
+                                        checkRepositories(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
+                                    } else if (mc.getMethodAsString().equals("jenkinsPlugin")) {
+                                        // verify the things that will make it into the pom.xml that is published
+                                        checkJenkinsPlugin(((ArgumentListExpression) mc.getArguments()).getExpression(0), hostingIssues);
+                                    }
+                                } else if (e instanceof BinaryExpression) {
+                                    BinaryExpression be = (BinaryExpression) e;
+                                    VariableExpression v = (VariableExpression) be.getLeftExpression();
+                                    if (v.getName().equals("group")) {
+                                        checkGroup(be.getRightExpression(), hostingIssues);
+                                    } else if (v.getName().equals("targetCompatibility")) {
+                                        checkTargetCompatibility(be.getRightExpression(), hostingIssues);
+                                    }
                                 }
                             }
+                            // There are other possibilities here, but we currently don't take them into account
                         }
 
 //                        try(BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
