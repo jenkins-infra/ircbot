@@ -82,6 +82,8 @@ public class HostingChecker {
                 hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.WARNING, "No build system found (pom.xml, build.gradle, build.gradle.kts)"));
             }
 
+            out.message("Done checking hosting for " + issueID + ", found " + hostingIssues.size() + " issues");
+
             StringBuilder msg = new StringBuilder("Hello from your friendly Jenkins Hosting Checker\n\n");
             log.info("Checking if there were errors");
             if(hostingIssues.size() > 0) {
