@@ -26,8 +26,8 @@ public class IrcBotConfig {
     private static final String DEFAULT_IRCBOT_NAME = ("ircbot-"+System.getProperty("user.name"));
     static String NAME = System.getProperty(varPrefix+"name", DEFAULT_IRCBOT_NAME);
     static String SERVER = System.getProperty(varPrefix+"server", "irc.freenode.net");
-    static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins", "#jenkins-infra", "#jenkins-community"));
-    static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra,#jenkins-community");
+    static final Set<String> DEFAULT_CHANNELS = new HashSet<String>(Arrays.asList("#jenkins", "#jenkins-infra", "#jenkins-release", "#jenkins-hosting"));
+    static final String CHANNELS_LIST = System.getProperty(varPrefix+"channels", "#jenkins,#jenkins-infra,#jenkins-release,#jenkins-hosting");
 
     // Testing
     /**

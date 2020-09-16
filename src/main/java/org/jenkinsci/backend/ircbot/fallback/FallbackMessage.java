@@ -29,7 +29,7 @@ public class FallbackMessage {
         }
 
         if (StringUtils.startsWithIgnoreCase(payload, "hello")) {
-            return "Hello " + sender + "!";
+            return "Hello, " + sender.getNick() + "!";
         }
 
         return new WeightedRandomAnswer()
