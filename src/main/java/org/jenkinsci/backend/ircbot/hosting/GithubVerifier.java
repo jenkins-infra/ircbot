@@ -32,8 +32,12 @@ public class GithubVerifier implements Verifier {
                     continue;
                 }
 
-                GHUser ghUser = github.getUser(user.trim());
-                if (ghUser == null || !ghUser.getType().equalsIgnoreCase("user")) {
+                try {
+                    GHUser ghUser = github.getUser(user.trim());
+                    if (ghUser == null || !ghUser.getType().equalsIgnoreCase("user")) {
+                        invalidUsers.add(user.trim());
+                    }
+                } catch(IOException e) {
                     invalidUsers.add(user.trim());
                 }
             }
