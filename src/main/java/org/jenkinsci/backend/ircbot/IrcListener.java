@@ -14,10 +14,18 @@ import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
 import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
 import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
-import org.apache.commons.io.IOUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import org.apache.commons.lang.StringUtils;
 
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
+import org.kohsuke.github.GHOrganization.Permission;
+import org.kohsuke.github.GHTeamBuilder;
 import org.pircbotx.*;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
@@ -25,7 +33,6 @@ import org.pircbotx.hooks.events.MessageEvent;
 import org.kohsuke.github.GHContentBuilder;
 import org.kohsuke.github.GHContentUpdateResponse;
 import org.kohsuke.github.GHOrganization;
-import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
@@ -47,9 +54,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
@@ -61,11 +66,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Arrays.asList;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
 import javax.annotation.CheckForNull;
 
@@ -75,14 +82,6 @@ import javax.annotation.CheckForNull;
  * @author Kohsuke Kawaguchi
  */
 public class IrcListener extends ListenerAdapter {
-    private static final String FORK_TO_JIRA_FIELD = "customfield_10321";
-    private static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    private static final String GITHUB_USER_LIST_JIRA_FIELD = "customfield_10323";
-    private static final String RELEASE_USER_LIST_JIRA_FIELD = "";
-    private static final String ARTIFACT_PATH_JIRA_FIELD = "";
-
-    private static final String DONE_JIRA_RESOLUTION_NAME = "Done";
-
     /**
      * Records commands that we didn't understand.
      */
@@ -131,7 +130,7 @@ public class IrcListener extends ListenerAdapter {
             throw ex; // Propagate the error to the caller in order to let it log and handle the issue
         }
     }
-        
+
     private void replyBugStatuses(Channel channel, String message) {
         Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
@@ -142,33 +141,33 @@ public class IrcListener extends ListenerAdapter {
         while (m.find()) {
             replyBugStatus(channel,"INFRA-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:website-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"WEBSITE-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:hosting-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"HOSTING-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:events-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"EVENTS-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:ux-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"UX-"+m.group(1));
         }
-        
+
         m = Pattern.compile("(?:test-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
         while (m.find()) {
             replyBugStatus(channel,"TEST-"+m.group(1));
         }
     }
-    
+
     /**
      * Handles direct commands coming to the bot.
      * The handler presumes the external trimming of the payload.
@@ -184,10 +183,10 @@ public class IrcListener extends ListenerAdapter {
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3));
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList());
             return;
         }
-        
+
         m = Pattern.compile("rename (?:github )repo (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             renameGitHubRepo(channel, sender, m.group(1), m.group(2));
@@ -206,12 +205,24 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(maintainer) on (.*)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            makeGitHubTeamMaintainer(channel, sender, m.group(1), m.group(4));
+            return;
+        }
+
+        m = Pattern.compile("(?:make) (.*) team visible",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            makeGitHubTeamVisible(channel, sender, m.group(1));
+            return;
+        }
+
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: component)? in (?:the )?(?:issue|bug)(?: tracker| database)? for (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             createComponent(channel, sender, m.group(1), m.group(2));
             return;
         }
-        
+
         m = Pattern.compile("(?:rem|remove|del|delete) component (\\S+) and move its issues to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             deleteComponent(channel, sender, m.group(1), m.group(2));
@@ -229,25 +240,25 @@ public class IrcListener extends ListenerAdapter {
             removeDefaultAssignee(channel, sender, m.group(1));
             return;
         }
-        
+
         m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setDefaultAssignee(channel, sender, m.group(2), m.group(1));
             return;
         }
-        
+
         m = Pattern.compile("set (?:the )?description (?:for|of) (?:component )?(\\S+) to \\\"(.*)\\\"",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setComponentDescription(channel, sender, m.group(1) , m.group(2));
             return;
         }
-        
+
         m = Pattern.compile("(?:rem|remove) (?:the )?description (?:for|of) (?:component )?(\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             setComponentDescription(channel, sender, m.group(1) , null);
             return;
         }
-        
+
         m = Pattern.compile("(?:make|give|grant|add) (\\S+) voice(?: on irc)?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             grantAutoVoice(channel,sender,m.group(1));
@@ -266,13 +277,19 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:host) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:host|approve) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             String forkTo = "";
             if(m.groupCount() > 1) {
                 forkTo = m.group(2);
             }
             setupHosting(channel,sender,m.group(1),forkTo);
+            return;
+        }
+
+        m = Pattern.compile("(?:check) (?:hosting-)(\\d+)", CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            checkHosting(channel,sender,m.group(1));
             return;
         }
 
@@ -291,7 +308,7 @@ public class IrcListener extends ListenerAdapter {
             channel.getBot().sendRaw().rawLineNow("NAMES " + channel);
             return;
         }
-        
+
         if (payload.equalsIgnoreCase("restart")) {
             restart(channel,sender);
         }
@@ -299,8 +316,8 @@ public class IrcListener extends ListenerAdapter {
         sendFallbackMessage(channel, payload, sender);
 
         try {
-            PrintWriter w = new PrintWriter(new FileWriter(unknownCommands, true));
-            w.println(payload);
+            Writer w = new OutputStreamWriter(new FileOutputStream(unknownCommands), StandardCharsets.UTF_8);
+            w.append(payload);
             w.close();
         } catch (IOException e) {// if we fail to write, let it be.
             e.printStackTrace();
@@ -315,17 +332,21 @@ public class IrcListener extends ListenerAdapter {
 
     /**
      * Restart ircbot.
-     * 
+     *
      * We just need to quit, and docker container manager will automatically restart
      * another one. We've seen for some reasons sometimes jenkins-admin loses its +o flag,
      * and when that happens a restart fixes it quickly.
      */
+    @SuppressFBWarnings(
+            value="DM_EXIT",
+            justification="Intentionally restarting the app"
+    )
     private void restart(Channel channel, User sender) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
             return;
         }
-        
+
         channel.send().message("I'll quit and come back");
         System.exit(0);
     }
@@ -356,6 +377,7 @@ public class IrcListener extends ListenerAdapter {
 
         final String issueID = "HOSTING-" + hostingId;
         out.message("Approving hosting request " + issueID);
+
         replyBugStatus(channel, issueID);
         JiraRestClient client = null;
 
@@ -363,9 +385,7 @@ public class IrcListener extends ListenerAdapter {
             client = JiraHelper.createJiraClient();
             final IssueRestClient issueClient = client.getIssueClient();
             final Issue issue = JiraHelper.getIssue(client, issueID);
-
-            List<String> githubUsers = new ArrayList<>();
-            List<String> releaseUsers = new ArrayList<>();
+            List<String> users = new ArrayList<String>();
 
             final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
             if (reporter == null) {
@@ -375,23 +395,15 @@ public class IrcListener extends ListenerAdapter {
             }
             String defaultAssignee = reporter != null ? reporter.getName() : "";
 
-            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, FORK_FROM_JIRA_FIELD, "");
-            String githubUserList = JiraHelper.getFieldValueOrDefault(issue, GITHUB_USER_LIST_JIRA_FIELD, "");
-            for (String u : githubUserList.split("\\n")) {
+            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_FROM_JIRA_FIELD, "");
+            String userList = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.USER_LIST_JIRA_FIELD, "");
+            for (String u : userList.split("\\n")) {
                 if(StringUtils.isNotBlank(u))
-                    githubUsers.add(u.trim());
+                    users.add(u.trim());
             }
-            String forkTo = JiraHelper.getFieldValueOrDefault(issue, FORK_TO_JIRA_FIELD, defaultForkTo);
+            String forkTo = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_TO_JIRA_FIELD, defaultForkTo);
 
-            String releaseUserList = JiraHelper.getFieldValueOrDefault(issue, RELEASE_USER_LIST_JIRA_FIELD, defaultAssignee);
-            for (String u : releaseUserList.split("\\n")) {
-                if(StringUtils.isNotBlank(u))
-                    releaseUsers.add(u.trim());
-            }
-
-            String artifactPath = JiraHelper.getFieldValueOrDefault(issue, ARTIFACT_PATH_JIRA_FIELD, "");
-
-            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || githubUsers.isEmpty() || releaseUsers.isEmpty() || StringUtils.isBlank(artifactPath)) {
+            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 out.message("Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
@@ -399,20 +411,13 @@ public class IrcListener extends ListenerAdapter {
             // Parse forkFrom in order to determine original repo owner and repo name
             Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
             if (m.matches()) {
-                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo)) {
+                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo, users)) {
                     out.message("Hosting request failed to fork repository on Github");
                     return;
                 }
             } else {
                 out.message("ERROR: Cannot parse the source repo: " + forkFrom);
                 return;
-            }
-
-            // add the users to the repo
-            for(String user : githubUsers) {
-                if(StringUtils.isNotBlank(user) && !addGitHubCommitter(channel,sender,user,forkTo)) {
-                    out.message("Hosting request failed to add "+user+" as committer, continuing anyway");
-                }
             }
 
             // create the JIRA component
@@ -451,19 +456,19 @@ public class IrcListener extends ListenerAdapter {
                     get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
 
             try {
-                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), DONE_JIRA_RESOLUTION_NAME);
+                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), JiraHelper.DONE_JIRA_RESOLUTION_NAME);
                 if(transition != null) {
-                    Collection<FieldInput> inputs = Arrays.asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", DONE_JIRA_RESOLUTION_NAME)));
+                    Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", JiraHelper.DONE_JIRA_RESOLUTION_NAME)));
                     JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
                 } else {
-                    out.message("Unable to transition issue to \"" + DONE_JIRA_RESOLUTION_NAME + "\" state");
+                    out.message("Unable to transition issue to \"" + JiraHelper.DONE_JIRA_RESOLUTION_NAME + "\" state");
                 }
             } catch (RestClientException e) {
                 // if the issue cannot be put into the "resolved" state
                 // (perhaps it's already in that state), let it be. Or else
                 // we end up with the carpet bombing like HUDSON-2552.
                 // See HUDSON-5133 for the failure mode.
-                
+
                 System.err.println("Failed to mark the issue as Done. " + e.getMessage());
                 e.printStackTrace();
             }
@@ -477,6 +482,20 @@ public class IrcListener extends ListenerAdapter {
                 out.message("Failed to close JIRA client, possible leaked file descriptors");
             }
         }
+    }
+
+    private void checkHosting(Channel channel, User sender, String hostingId) {
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return;
+        }
+
+        final String issueID = "HOSTING-" + hostingId;
+        channel.send().message("Checking hosting request " + issueID);
+
+        replyBugStatus(channel, issueID);
+        HostingChecker checker = new HostingChecker();
+        checker.checkRequest(channel.send(), issueID);
     }
 
     private void replyBugStatus(Channel channel, String ticket) {
@@ -497,7 +516,7 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
-    
+
 
     /**
      * Is the sender respected in the channel?
@@ -507,10 +526,9 @@ public class IrcListener extends ListenerAdapter {
     private boolean isSenderAuthorized(Channel channel, User sender) {
         return isSenderAuthorized(channel, sender, true);
     }
-    
+
     private boolean isSenderAuthorized(Channel channel, User sender, boolean acceptVoice) {
-        return sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP || (acceptVoice && e == UserLevel.VOICE)
-                        || (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick()) ));
+        return (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick())) || sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP || (acceptVoice && e == UserLevel.VOICE));
     }
 
     private void help(Channel channel) {
@@ -526,13 +544,13 @@ public class IrcListener extends ListenerAdapter {
         } catch (IOException e) {
             e.printStackTrace();
             out.message("I don't know who I am");
-        } 
+        }
     }
 
     private void insufficientPermissionError(Channel channel) {
         insufficientPermissionError(channel, true);
     }
-    
+
     private void insufficientPermissionError(Channel channel, boolean acceptVoice ) {
         OutputChannel out = channel.send();
         final String requiredPrefix = acceptVoice ? "+ or @" : "@";
@@ -561,10 +579,9 @@ public class IrcListener extends ListenerAdapter {
         try {
             client = JiraHelper.createJiraClient();
             final ComponentRestClient componentClient = client.getComponentClient();
-            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT, 
+            final Promise<Component> createComponent = componentClient.createComponent(IrcBotConfig.JIRA_DEFAULT_PROJECT,
                     new ComponentInput(subcomponent, "subcomponent", owner, AssigneeType.COMPONENT_LEAD));
             final Component component = JiraHelper.wait(createComponent);
-            component.getSelf();
             out.message("New component created. URL is " + component.getSelf().toURL());
             result = true;
         } catch (Exception e) {
@@ -643,7 +660,7 @@ public class IrcListener extends ListenerAdapter {
             client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, oldName);
             final ComponentRestClient componentClient = JiraHelper.createJiraClient().getComponentClient();
-            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(), 
+            Promise<Component> updateComponent = componentClient.updateComponent(component.getSelf(),
                     new ComponentInput(newName, null, null, null));
             JiraHelper.wait(updateComponent);
             out.message("The component has been renamed");
@@ -656,7 +673,7 @@ public class IrcListener extends ListenerAdapter {
             }
         }
     }
-    
+
     /**
      * Deletes an issue tracker component.
      */
@@ -687,17 +704,17 @@ public class IrcListener extends ListenerAdapter {
             }
         }
     }
-    
+
     /**
      * Deletes an assignee from the specified component
      */
     private void removeDefaultAssignee(Channel channel, User sender, String subcomponent) {
         setDefaultAssignee(channel, sender, subcomponent, null);
     }
-    
+
     /**
      * Creates an issue tracker component.
-     * @param owner User ID or null if the owner should be removed 
+     * @param owner User ID or null if the owner should be removed
      */
     private void setDefaultAssignee(Channel channel, User sender, String subcomponent, @CheckForNull String owner) {
         if (!isSenderAuthorized(channel,sender)) {
@@ -712,7 +729,7 @@ public class IrcListener extends ListenerAdapter {
         try {
             client = JiraHelper.createJiraClient();
             final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
-            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(), 
+            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
                     new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
             JiraHelper.wait(updateComponent);
             out.message(owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
@@ -725,7 +742,7 @@ public class IrcListener extends ListenerAdapter {
             }
         }
     }
-    
+
     /**
      * Sets the component description.
      * @param description Component description. Use null to remove the description
@@ -757,7 +774,7 @@ public class IrcListener extends ListenerAdapter {
             }
         }
     }
-    
+
     private void grantAutoVoice(Channel channel, User sender, String target) {
         if (!isSenderAuthorized(channel,sender)) {
           insufficientPermissionError(channel);
@@ -765,8 +782,8 @@ public class IrcListener extends ListenerAdapter {
         }
 
         OutputIRC out = channel.getBot().sendIRC();
-        out.message("CHANSERV", "flags " + channel + " " + target + " +V");
-        out.message("CHANSERV", "voice " + channel + " " + target);
+        out.message("CHANSERV", "flags " + channel.getName() + " " + target + " +V");
+        out.message("CHANSERV", "voice " + channel.getName() + " " + target);
         channel.send().message("Voice privilege (+V) added for " + target);
     }
 
@@ -777,8 +794,8 @@ public class IrcListener extends ListenerAdapter {
         }
 
         OutputIRC out = channel.getBot().sendIRC();
-        out.message("CHANSERV", "flags " + channel + " " + target + " -V");
-        out.message("CHANSERV", "devoice " + channel + " " + target);
+        out.message("CHANSERV", "flags " + channel.getName() + " " + target + " -V");
+        out.message("CHANSERV", "devoice " + channel.getName() + " " + target);
         channel.send().message("Voice privilege (-V) removed for " + target);
     }
 
@@ -795,15 +812,81 @@ public class IrcListener extends ListenerAdapter {
             GHRepository r = org.createRepository(name).private_(false).create();
             setupRepository(r);
 
-            GHTeam t = getOrCreateRepoLocalTeam(org, r);
-            if (collaborator!=null)
-                t.add(github.getUser(collaborator));
+            getOrCreateRepoLocalTeam(out, github, org, r, singletonList(collaborator));
 
             out.message("New github repository created at "+r.getUrl());
         } catch (IOException e) {
             out.message("Failed to create a repository: "+e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Makes GitHub team visible.
+     *
+     * @param team
+     *      team to make visible
+     */
+    private boolean makeGitHubTeamVisible(Channel channel, User sender, String team) {
+        boolean result = false;
+        if (!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+        OutputChannel out = channel.send();
+        try {
+            GitHub github = GitHub.connect();
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            final GHTeam ghTeam = o.getTeamByName(team);
+            if (ghTeam == null) {
+                out.message("No team for " + team);
+                return false;
+            }
+
+            ghTeam.setPrivacy(GHTeam.Privacy.CLOSED);
+
+            out.message("Made GitHub team " + team + " visible");
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to make GitHub team " + team + " visible: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    /**
+     * Makes a user a maintainer of a GitHub team
+     *
+     * @param team
+     *      make user a maintainer of a team.
+     */
+    private boolean makeGitHubTeamMaintainer(Channel channel, User sender, String newTeamMaintainer, String team) {
+        boolean result = false;
+        if (!isSenderAuthorized(channel, sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+        OutputChannel out = channel.send();
+        try {
+            GitHub github = GitHub.connect();
+            GHUser c = github.getUser(newTeamMaintainer);
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            final GHTeam ghTeam = o.getTeamByName(team);
+            if (ghTeam == null) {
+                out.message("No team for " + team);
+                return false;
+            }
+
+            ghTeam.add(c, GHTeam.Role.MAINTAINER);
+            out.message("Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team);
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to make user maintainer of team: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
     }
 
     /**
@@ -828,23 +911,17 @@ public class IrcListener extends ListenerAdapter {
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-            
+
             final GHTeam t;
-                GHRepository forThisRepo = o.getRepository(justForThisRepo);
-                 if (forThisRepo == null) {
-                     out.message("Could not find repository:  "+justForThisRepo);
-                     return false;
-                 }
-                 t = getOrCreateRepoLocalTeam(o, forThisRepo);
-                
-            if (t==null) {
-                out.message("No team for "+justForThisRepo);
+            GHRepository forThisRepo = o.getRepository(justForThisRepo);
+            if (forThisRepo == null) {
+                out.message("Could not find repository:  "+justForThisRepo);
                 return false;
             }
 
+            t = getOrCreateRepoLocalTeam(out, github, o, forThisRepo, emptyList());
             t.add(c);
-            String successMsg = "Added "+collaborator+" as a GitHub committer for repository " + justForThisRepo;
-            out.message(successMsg);
+            out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
             result = true;
         } catch (IOException e) {
             out.message("Failed to add user to team: "+e.getMessage());
@@ -879,12 +956,12 @@ public class IrcListener extends ListenerAdapter {
             e.printStackTrace();
         }
     }
-    
+
     /**
      * @param newName
      *      If not null, rename a repository after a fork.
      */
-    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName) {
+    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName, List<String> maintainers) {
         boolean result = false;
         OutputChannel out = channel.send();
         try {
@@ -953,10 +1030,8 @@ public class IrcListener extends ListenerAdapter {
             // GitHub adds a lot of teams to this repo by default, which we don't want
             Set<GHTeam> legacyTeams = r.getTeams();
 
-            GHTeam t = getOrCreateRepoLocalTeam(org, r);
             try {
-                t.add(user);    // the user immediately joins this team
-                
+                getOrCreateRepoLocalTeam(out, github, org, r, maintainers.isEmpty() ? singletonList(user.getName()) : maintainers);
             } catch (IOException e) {
                 // if 'user' is an org, the above command would fail
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
@@ -987,7 +1062,7 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Fix up the repository set up to our policy.
      */
-    private void setupRepository(GHRepository r) throws IOException {
+    private static void setupRepository(GHRepository r) throws IOException {
         r.enableIssueTracker(false);
         r.enableWiki(false);
     }
@@ -995,18 +1070,52 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Creates a repository local team, and grants access to the repository.
      */
-    private GHTeam getOrCreateRepoLocalTeam(GHOrganization org, GHRepository r) throws IOException {
+    private static GHTeam getOrCreateRepoLocalTeam(OutputChannel out, GitHub github, GHOrganization org, GHRepository r, List<String> githubUsers) throws IOException {
         String teamName = r.getName() + " Developers";
         GHTeam t = org.getTeams().get(teamName);
-        if (t==null) {
-            t = org.createTeam(teamName, Permission.PULL, r);
-            t.add(r, Permission.ADMIN); // make team an admin on the given repository
-        } else {
-            if (!t.getRepositories().containsValue(r)) {
-                t.add(r);
+        if (t == null) {
+            GHTeamBuilder ghCreateTeamBuilder = org.createTeam(teamName).privacy(GHTeam.Privacy.CLOSED);
+            List<String> maintainers = emptyList();
+            if (!githubUsers.isEmpty()) {
+                maintainers = githubUsers.stream()
+                        // in order to be added as a maintainer of a team you have to be a member of the org already
+                        .filter(user -> isMemberOfOrg(github, org, user))
+                        .collect(Collectors.toList());
+                ghCreateTeamBuilder = ghCreateTeamBuilder.maintainers(maintainers.toArray(new String[0]));
             }
+            t = ghCreateTeamBuilder.create();
+
+            List<String> usersNotInMaintainers = new ArrayList<>(githubUsers);
+            usersNotInMaintainers.removeAll(maintainers);
+            final GHTeam team = t;
+            usersNotInMaintainers.forEach(addUserToTeam(out, github, team));
+            // github automatically adds the user to the team who created the team, we don't want that
+            team.remove(github.getMyself());
         }
+        
+        t.add(r, Permission.ADMIN); // make team an admin on the given repository, always do in case the config is wrong
         return t;
+    }
+
+    private static Consumer<String> addUserToTeam(OutputChannel out, GitHub github, GHTeam team) {
+        return user -> {
+            try {
+                team.add(github.getUser(user));
+            } catch (IOException e) {
+                out.message(String.format("Failed to add user %s to team %s, error was:  %s", user, team.getName(), e.getMessage()));
+                e.printStackTrace();
+            }
+        };
+    }
+
+    private static boolean isMemberOfOrg(GitHub gitHub, GHOrganization org, String user) {
+        try {
+            GHUser ghUser = gitHub.getUser(user);
+            return org.hasMember(ghUser);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public static void main(String[] args) throws Exception {

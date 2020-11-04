@@ -46,7 +46,12 @@ import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
  * @author Oleg Nenashev
  * @since 2.0-SNAPSHOT
  */
-class JiraHelper {
+public class JiraHelper {
+
+    public static final String FORK_TO_JIRA_FIELD = "customfield_10321";
+    public static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
+    public static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+    public static final String DONE_JIRA_RESOLUTION_NAME = "Done";
     
     /**
      * Creates JIRA client using settings from {@link ConnectionInfo} and {@link IrcBotConfig}.
@@ -138,7 +143,7 @@ class JiraHelper {
     }
     
     @Nullable
-    static String getFieldValueOrDefault(@Nonnull Issue issue, @Nonnull String fieldId, @CheckForNull String defaultValue) {
+    public static String getFieldValueOrDefault(@Nonnull Issue issue, @Nonnull String fieldId, @CheckForNull String defaultValue) {
         String res = defaultValue;
         for (IssueField val : issue.getFields()) {
             String thisFieldId = val.getId();
