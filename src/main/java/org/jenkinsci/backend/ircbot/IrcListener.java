@@ -18,12 +18,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
+import org.jenkinsci.backend.ircbot.hosting.GradleVerifier;
+import org.jenkinsci.backend.ircbot.hosting.MavenVerifier;
+import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
 import org.pircbotx.*;
@@ -426,7 +432,8 @@ public class IrcListener extends ListenerAdapter {
                 return;
             }
 
-            if(!createUploadPermissionPR(channel,sender,issueID,forkTo,releaseUsers,artifactPath)) {
+            String prUrl = createUploadPermissionPR(channel,sender,issueID,forkTo,users,Collections.singletonList(defaultAssignee));
+            if(StringUtils.isBlank(prUrl)) {
                 out.message("Could not create upload permission pull request");
             }
 
@@ -436,15 +443,16 @@ public class IrcListener extends ListenerAdapter {
                     + "https://github.com/jenkinsci/" + forkTo
                     + "\n\nA JIRA component named " + forkTo + " has also been created with "
                     + defaultAssignee + " as the default assignee for issues."
-                    + "\n\nA pull request has been created against the repository permissions updater to"
-                    + "setup upload permissions for those you specified in the release user list."
-                    + "\n\nPlease remove your original repository so that the jenkinsci repository "
+                    + "\n\nA [pull request|" + prUrl +"] has been created against the repository permissions updater to "
+                    + "setup release permissions for " + defaultAssignee + ". Additional users can be added by modifying "
+                    + "the created file. " + defaultAssignee + " will need to login to Jenkins' [Artifactory|https://repo.jenkins-ci.org/webapp/#/login] once before the permissions will be merged."
+                    + "\n\nPlease remove your original repository so that the jenkinsci organization repository "
                     + "is the definitive source for the code. Also, please make sure you properly "
                     + "follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
                     + "so that your plugin is correctly documented. \n\n"
                     + "You will also need to do the following in order to push changes and release your plugin: \n\n"
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
-                    + "* [Request upload permission|https://github.com/jenkins-infra/repository-permissions-updater/#requesting-permissions]\n"
+                    + "* [Add additional users for upload permissions|https://github.com/jenkins-infra/repository-permissions-updater/#requesting-permissions]\n"
                     + "* [Releasing your plugin|https://jenkins.io/doc/developer/publishing/releasing/]\n"
                     + "\n\nIn order for your plugin to be built by the [Jenkins CI Infrastructure|https://ci.jenkins.io] and check pull requests,"
                     + " please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root of your repository with the following content:\n"
@@ -457,7 +465,7 @@ public class IrcListener extends ListenerAdapter {
 
             try {
                 Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), JiraHelper.DONE_JIRA_RESOLUTION_NAME);
-                if(transition != null) {
+                if (transition != null) {
                     Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", JiraHelper.DONE_JIRA_RESOLUTION_NAME)));
                     JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
                 } else {
@@ -596,23 +604,43 @@ public class IrcListener extends ListenerAdapter {
         return result;
     }
 
-    boolean createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> releaseUsers, String artifactPath) {
-        try {
+    String createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> ghUsers, List<String> releaseUsers) {
+        String prUrl = "";
+        boolean isPlugin = forkTo.endsWith("-plugin");
+        OutputChannel out = channel.send();
+        if(isPlugin) {
             String branchName = forkTo + "-permissions";
-            GitHub github = GitHub.connect();
-            GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
-            GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
-            boolean isPlugin = forkTo.endsWith("-plugin");
-
             try {
-                repo.getBranch(branchName);
-            } catch(IOException e) {
-                repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
-            }
+                if (releaseUsers.size() == 0) {
+                    out.message("No users defined for release permissions, will not create PR");
+                    return null;
+                }
 
-            GHContentBuilder builder = repo.createContent();
-            builder = builder.branch(branchName).message("Adding upload permissions file for " + forkTo);
-            if(isPlugin) {
+                GitHub github = GitHub.connect();
+                GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
+                GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
+
+
+                GHContent prTemplate = repo.getFileContent(".github/PULL_REQUEST_TEMPLATE.md");
+                if (prTemplate == null) {
+                    out.message("Could not retrieve PR template for " + IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
+                    return null;
+                }
+
+                String artifactPath = getArtifactPath(github, forkTo);
+                if (StringUtils.isBlank(artifactPath)) {
+                    out.message("Could not resolve artifact path for " + forkTo);
+                    return null;
+                }
+
+                try {
+                    repo.getBranch(branchName);
+                } catch (IOException e) {
+                    repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
+                }
+
+                GHContentBuilder builder = repo.createContent();
+                builder = builder.branch(branchName).message("Adding upload permissions file for " + forkTo);
                 String name = forkTo.replace("-plugin", "");
                 String content = "---\n" +
                         "name: \"" + name + "\"\n" +
@@ -625,22 +653,38 @@ public class IrcListener extends ListenerAdapter {
                 }
 
                 builder = builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml");
-            } else {
-                channel.send().message("Can only create PR's for plugin permissions at this time");
-                return false;
+
+                GHContentUpdateResponse res = builder.commit();
+
+                Map<String, String> replacements = new HashMap<>();
+                String description = String.format("https://github.com/%s/%s\n%s/browse/%s", IrcBotConfig.GITHUB_ORGANIZATION, forkTo, IrcBotConfig.JIRA_URL, jiraIssue);
+
+                replacements.put("<!-- fill in description here, this will at least be a link to a GitHub repository, and often also links to hosting request, and @mentioning other committers/maintainers as per the checklist below -->", description);
+                replacements.put("- [ ] Add link to plugin/component Git repository in description above", "- [x] Add link to plugin/component Git repository in description above");
+                replacements.put("- [ ] Add link to resolved HOSTING issue in description above", "- [x] Add link to resolved HOSTING issue in description above");
+                replacements.put("- [ ] Make sure the file is created in `permissions/` directory", "- [x] Make sure the file is created in `permissions/` directory");
+                replacements.put("- [ ] `artifactId` (pom.xml) is used for `name` (permissions YAML file).", "- [x] `artifactId` (pom.xml) is used for `name` (permissions YAML file).");
+                replacements.put("- [ ] [`groupId` / `artifactId` (pom.xml) are correctly represented in `path` (permissions YAML file)](https://github.com/jenkins-infra/repository-permissions-updater/#managing-permissions)", "- [x] [`groupId` / `artifactId` (pom.xml) are correctly represented in `path` (permissions YAML file)](https://github.com/jenkins-infra/repository-permissions-updater/#managing-permissions)");
+                replacements.put("- [ ] Check that the file is named `plugin-${artifactId}.yml` for plugins", "- [x] Check that the file is named `plugin-${artifactId}.yml` for plugins");
+
+                String prMessage = IOUtils.toString(prTemplate.read(), Charset.defaultCharset());
+                for (String key : replacements.keySet()) {
+                    prMessage = prMessage.replace(key, replacements.get(key));
+                }
+
+                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prMessage);
+                prUrl = pr.getHtmlUrl().toString();
+                channel.send().message("Create PR for repository updater: " + prUrl);
+            } catch (IOException e) {
+                channel.send().message("Error creating PR: " + e.getMessage());
+            } catch (Exception e) {
+                channel.send().message("Error creating PR: " + e.getMessage());
             }
-
-            GHContentUpdateResponse res = builder.commit();
-
-            String prMessage = IOUtils.toString(getClass().getResourceAsStream("/permissions-repo-template.md")).replace("__FORKTO", forkTo).replace("__JIRA_HOSTING_KEY", jiraIssue);
-            GHPullRequest pr = repo.createPullRequest("Add upload permissions for "  + forkTo, branchName, repo.getDefaultBranch(), prMessage);
-            channel.send().message("Create PR for repository updater: " + pr.getUrl());
-        } catch(IOException e) {
-            channel.send().message("Error creating PR: " + e.getMessage());
-        } catch(Exception e) {
-            channel.send().message("Error creating PR: " + e.getMessage());
+        } else {
+            out.message("Can only create PR's for plugin permissions at this time");
+            return null;
         }
-        return true;
+        return prUrl;
     }
 
     /**
@@ -1037,8 +1081,6 @@ public class IrcListener extends ListenerAdapter {
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
                 // fall through
             }
-
-
             setupRepository(r);
 
             out.message("Created https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + (newName != null ? newName : repo));
@@ -1118,10 +1160,49 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
+    private static String getArtifactPath(GitHub github, String forkTo) throws IOException {
+        String res = "";
+
+        GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+        GHRepository fork = org.getRepository(forkTo);
+
+        if(fork == null) {
+            return null;
+        }
+
+        String artifactId = null;
+        String groupId = null;
+
+        String[] buildFiles = new String[] { "pom.xml", "build.gradle" };
+        for(String buildFile : buildFiles) {
+            try {
+                GHContent file = fork.getFileContent(buildFile);
+                if(file != null && file.isFile()) {
+                    String contents = IOUtils.toString(file.read(), Charset.forName("UTF-8"));
+                    if(buildFile.equalsIgnoreCase("pom.xml")) {
+                        artifactId = MavenVerifier.getArtifactId(contents);
+                        groupId = MavenVerifier.getGroupId(contents);
+                    } else if(buildFile.equalsIgnoreCase("build.gradle")) {
+                        artifactId = GradleVerifier.getShortName(contents);
+                        groupId = GradleVerifier.getGroupId(contents);
+                    }
+                    break;
+                }
+            } catch(IOException e) {
+                return null;
+            }
+        }
+
+        if(!StringUtils.isBlank(artifactId) && !StringUtils.isBlank((groupId))) {
+            res = String.format("%s/%s", groupId.replace('.', '/'), artifactId);
+        }
+        return res;
+    }
+
     public static void main(String[] args) throws Exception {
         Configuration.Builder builder = new Configuration.Builder()
                 .setName(IrcBotConfig.NAME)
-                .setServer(IrcBotConfig.SERVER, 6667)
+                .addServer(IrcBotConfig.SERVER, 6667)
                 .setAutoReconnect(true)
                 .addListener(new IrcListener(new File("unknown-commands.txt")));
 
