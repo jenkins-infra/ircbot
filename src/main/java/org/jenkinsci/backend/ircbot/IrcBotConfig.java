@@ -49,7 +49,7 @@ public class IrcBotConfig {
      * Specifies target JIRA URL.
      * @since 2.0-SNAPSHOT
      */
-    static final String JIRA_URL = System.getProperty(varPrefix+"jira.url", "https://issues.jenkins-ci.org");
+    static final String JIRA_URL = System.getProperty(varPrefix+"jira.url", "https://issues.jenkins.io");
     static final URI JIRA_URI;
     static String JIRA_DEFAULT_PROJECT = System.getProperty(varPrefix+"jira.defaultProject", "JENKINS");
     /**
