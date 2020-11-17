@@ -1179,10 +1179,10 @@ public class IrcListener extends ListenerAdapter {
                 GHContent file = fork.getFileContent(buildFile);
                 if(file != null && file.isFile()) {
                     String contents = IOUtils.toString(file.read(), StandardCharsets.UTF_8);
-                    if(buildFile.equalsIgnoreCase("pom.xml")) {
+                    if (buildFile.equalsIgnoreCase("pom.xml")) {
                         artifactId = MavenVerifier.getArtifactId(contents);
                         groupId = MavenVerifier.getGroupId(contents);
-                    } else if(buildFile.equalsIgnoreCase("build.gradle")) {
+                    } else if (buildFile.equalsIgnoreCase("build.gradle")) {
                         artifactId = GradleVerifier.getShortName(contents);
                         groupId = GradleVerifier.getGroupId(contents);
                     }
