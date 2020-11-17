@@ -446,9 +446,9 @@ public class IrcListener extends ListenerAdapter {
                     + "\n\nA [pull request|" + prUrl +"] has been created against the repository permissions updater to "
                     + "setup release permissions for " + defaultAssignee + ". Additional users can be added by modifying "
                     + "the created file. " + defaultAssignee + " will need to login to Jenkins' [Artifactory|https://repo.jenkins-ci.org/webapp/#/login] once before the permissions will be merged."
-                    + "\n\nPlease remove your original repository so that the jenkinsci organization repository "
-                    + "is the definitive source for the code. Also, please make sure you properly "
-                    + "follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
+                    + "\n\nPlease remove your original repository (if there are no other forks) so that the jenkinsci organization repository "
+                    + "is the definitive source for the code. If there are forks, please contact GitHub support to remove the relationship between the new fork and your original repository. "
+                    + "Also, please make sure you properly follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
                     + "so that your plugin is correctly documented. \n\n"
                     + "You will also need to do the following in order to push changes and release your plugin: \n\n"
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
@@ -609,7 +609,7 @@ public class IrcListener extends ListenerAdapter {
         boolean isPlugin = forkTo.endsWith("-plugin");
         OutputChannel out = channel.send();
         if(isPlugin) {
-            String branchName = forkTo + "-permissions";
+            String branchName = "ircbot-" + forkTo + "-permissions";
             try {
                 if (releaseUsers.size() == 0) {
                     out.message("No users defined for release permissions, will not create PR");
@@ -633,9 +633,7 @@ public class IrcListener extends ListenerAdapter {
                     return null;
                 }
 
-                try {
-                    repo.getBranch(branchName);
-                } catch (IOException e) {
+                if(!repo.getBranches().containsKey(branchName)) {
                     repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
                 }
 
@@ -648,31 +646,16 @@ public class IrcListener extends ListenerAdapter {
                         "paths:\n" +
                         "- \"" + artifactPath + "\"\n" +
                         "developers:\n";
+                StringBuffer userBuffer = new StringBuffer();
                 for(String u : releaseUsers) {
-                    content += "- \"" + u + "\"\n";
+                    userBuffer.append("- \"" + u + "\"\n");
                 }
+                content += userBuffer.toString();
 
-                builder = builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml");
+                builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
 
-                GHContentUpdateResponse res = builder.commit();
-
-                Map<String, String> replacements = new HashMap<>();
-                String description = String.format("https://github.com/%s/%s\n%s/browse/%s", IrcBotConfig.GITHUB_ORGANIZATION, forkTo, IrcBotConfig.JIRA_URL, jiraIssue);
-
-                replacements.put("<!-- fill in description here, this will at least be a link to a GitHub repository, and often also links to hosting request, and @mentioning other committers/maintainers as per the checklist below -->", description);
-                replacements.put("- [ ] Add link to plugin/component Git repository in description above", "- [x] Add link to plugin/component Git repository in description above");
-                replacements.put("- [ ] Add link to resolved HOSTING issue in description above", "- [x] Add link to resolved HOSTING issue in description above");
-                replacements.put("- [ ] Make sure the file is created in `permissions/` directory", "- [x] Make sure the file is created in `permissions/` directory");
-                replacements.put("- [ ] `artifactId` (pom.xml) is used for `name` (permissions YAML file).", "- [x] `artifactId` (pom.xml) is used for `name` (permissions YAML file).");
-                replacements.put("- [ ] [`groupId` / `artifactId` (pom.xml) are correctly represented in `path` (permissions YAML file)](https://github.com/jenkins-infra/repository-permissions-updater/#managing-permissions)", "- [x] [`groupId` / `artifactId` (pom.xml) are correctly represented in `path` (permissions YAML file)](https://github.com/jenkins-infra/repository-permissions-updater/#managing-permissions)");
-                replacements.put("- [ ] Check that the file is named `plugin-${artifactId}.yml` for plugins", "- [x] Check that the file is named `plugin-${artifactId}.yml` for plugins");
-
-                String prMessage = IOUtils.toString(prTemplate.read(), Charset.defaultCharset());
-                for (String key : replacements.keySet()) {
-                    prMessage = prMessage.replace(key, replacements.get(key));
-                }
-
-                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prMessage);
+                String description = String.format("https://github.com/%s/%s%n%s/browse/%s", IrcBotConfig.GITHUB_ORGANIZATION, forkTo, IrcBotConfig.JIRA_URL, jiraIssue);
+                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), description);
                 prUrl = pr.getHtmlUrl().toString();
                 channel.send().message("Create PR for repository updater: " + prUrl);
             } catch (IOException e) {
