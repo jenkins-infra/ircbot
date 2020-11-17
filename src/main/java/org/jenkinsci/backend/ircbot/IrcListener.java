@@ -1182,7 +1182,7 @@ public class IrcListener extends ListenerAdapter {
                     if (buildFile.equalsIgnoreCase("pom.xml")) {
                         artifactId = MavenVerifier.getArtifactId(contents);
                         groupId = MavenVerifier.getGroupId(contents);
-                    } else if(buildFile.equalsIgnoreCase("build.gradle")) {
+                    } else if (buildFile.equalsIgnoreCase("build.gradle")) {
                         artifactId = GradleVerifier.getShortName(contents);
                         groupId = GradleVerifier.getGroupId(contents);
                     }
