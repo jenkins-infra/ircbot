@@ -1178,7 +1178,7 @@ public class IrcListener extends ListenerAdapter {
             try {
                 GHContent file = fork.getFileContent(buildFile);
                 if(file != null && file.isFile()) {
-                    String contents = IOUtils.toString(file.read(), Charset.forName("UTF-8"));
+                    String contents = IOUtils.toString(file.read(), StandardCharsets.UTF_8);
                     if(buildFile.equalsIgnoreCase("pom.xml")) {
                         artifactId = MavenVerifier.getArtifactId(contents);
                         groupId = MavenVerifier.getGroupId(contents);
