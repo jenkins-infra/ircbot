@@ -627,7 +627,7 @@ public class IrcListener extends ListenerAdapter {
                     return null;
                 }
 
-                String artifactPath = getArtifactPath(github, forkTo);
+                String artifactPath = getArtifactPath(channel, github, forkTo);
                 if (StringUtils.isBlank(artifactPath)) {
                     out.message("Could not resolve artifact path for " + forkTo);
                     return null;
@@ -1160,7 +1160,7 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
-    private static String getArtifactPath(GitHub github, String forkTo) throws IOException {
+    private static String getArtifactPath(Channel channel, GitHub github, String forkTo) throws IOException {
         String res = "";
 
         GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
@@ -1189,6 +1189,7 @@ public class IrcListener extends ListenerAdapter {
                     break;
                 }
             } catch(IOException e) {
+                channel.send().message("Could not find supported build file (pom.xml or build.gradle) to get artifact path from.");
                 return null;
             }
         }

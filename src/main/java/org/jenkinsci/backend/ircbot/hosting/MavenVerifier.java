@@ -94,9 +94,8 @@ public class MavenVerifier implements BuildSystemVerifier {
 
     public static String getArtifactId(String contents) {
         String res;
-        try {
-            MavenXpp3Reader reader = new MavenXpp3Reader();
-            StringReader stringReader = new StringReader(contents);
+        MavenXpp3Reader reader = new MavenXpp3Reader();
+        try(StringReader stringReader = new StringReader(contents)) {
             Model model = reader.read(stringReader);
             res = model.getArtifactId();
         } catch(XmlPullParserException | IOException e) {
@@ -107,9 +106,8 @@ public class MavenVerifier implements BuildSystemVerifier {
 
     public static String getGroupId(String contents) {
         String res;
-        try {
-            MavenXpp3Reader reader = new MavenXpp3Reader();
-            StringReader stringReader = new StringReader(contents);
+        MavenXpp3Reader reader = new MavenXpp3Reader();
+        try(StringReader stringReader = new StringReader(contents)) {
             Model model = reader.read(stringReader);
             res = model.getGroupId();
         } catch(XmlPullParserException | IOException e) {
