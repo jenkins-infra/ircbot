@@ -611,7 +611,7 @@ public class IrcListener extends ListenerAdapter {
         if(isPlugin) {
             String branchName = forkTo + "-permissions";
             try {
-                if (releaseUsers.size() == 0) {
+                if (releaseUsers.isEmpty()) {
                     out.message("No users defined for release permissions, will not create PR");
                     return null;
                 }
