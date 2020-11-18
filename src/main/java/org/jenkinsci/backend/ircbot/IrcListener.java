@@ -18,8 +18,11 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -81,6 +84,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
 import javax.annotation.CheckForNull;
+import javax.print.attribute.URISyntax;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -482,7 +486,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             out.message("Hosting setup complete");
-        } catch(Exception e) {
+        } catch (IOException | URISyntaxException | ExecutionException | TimeoutException | InterruptedException e) {
             e.printStackTrace();
             out.message("Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
         } finally {
