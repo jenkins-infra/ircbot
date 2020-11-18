@@ -444,7 +444,7 @@ public class IrcListener extends ListenerAdapter {
                     + "setup release permissions for " + defaultAssignee + ". Additional users can be added by modifying "
                     + "the created file. " + defaultAssignee + " will need to login to Jenkins' [Artifactory|https://repo.jenkins-ci.org/webapp/#/login] once before the permissions will be merged."
                     + "\n\nPlease remove your original repository (if there are no other forks) so that the jenkinsci organization repository "
-                    + "is the definitive source for the code. If there are forks, please contact GitHub support to remove the relationship between the new fork and your original repository. "
+                    + "is the definitive source for the code. If there are other forks, please contact GitHub support to make the jenkinsci repo the root of the fork network (mention that Jenkins approval was given in support request 569994). "
                     + "Also, please make sure you properly follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
                     + "so that your plugin is correctly documented. \n\n"
                     + "You will also need to do the following in order to push changes and release your plugin: \n\n"
