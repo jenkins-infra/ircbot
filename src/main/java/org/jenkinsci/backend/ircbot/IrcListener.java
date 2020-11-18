@@ -19,7 +19,6 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URISyntaxException;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -35,12 +34,10 @@ import org.jenkinsci.backend.ircbot.hosting.MavenVerifier;
 import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
-import org.pircbotx.*;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.kohsuke.github.GHContentBuilder;
-import org.kohsuke.github.GHContentUpdateResponse;
 import org.kohsuke.github.GHOrganization;
 import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
@@ -52,9 +49,6 @@ import org.pircbotx.Configuration;
 import org.pircbotx.PircBotX;
 import org.pircbotx.User;
 import org.pircbotx.UserLevel;
-import org.pircbotx.cap.SASLCapHandler;
-import org.pircbotx.hooks.ListenerAdapter;
-import org.pircbotx.hooks.events.MessageEvent;
 import org.pircbotx.output.OutputChannel;
 import org.pircbotx.output.OutputIRC;
 
@@ -84,7 +78,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
 import javax.annotation.CheckForNull;
-import javax.print.attribute.URISyntax;
 
 /**
  * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
@@ -658,8 +651,15 @@ public class IrcListener extends ListenerAdapter {
 
                 builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
 
-                String description = String.format("https://github.com/%s/%s%n%s/browse/%s", IrcBotConfig.GITHUB_ORGANIZATION, forkTo, IrcBotConfig.JIRA_URL, jiraIssue);
-                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), description);
+                String prText = String.format("Hello from your friendly Jenkins Hosting Bot!%n%n" +
+                        "This is an automatically created PR for:%n%n" +
+                        "- %s/browse/%s%n" +
+                        "- https://github.com/%s/%s%n%n" +
+                        "The user listed this PR may not have logged in to Artifactory yet, check the PR status.%n" +
+                        "To check again, retrigger the build using Checks area or by closing and reopening the PR.",
+                        IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
+
+                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
                 prUrl = pr.getHtmlUrl().toString();
                 channel.send().message("Create PR for repository updater: " + prUrl);
             } catch (IOException e) {
