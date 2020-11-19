@@ -650,7 +650,7 @@ public class IrcListener extends ListenerAdapter {
                         "This is an automatically created PR for:%n%n" +
                         "- %s/browse/%s%n" +
                         "- https://github.com/%s/%s%n%n" +
-                        "The user listed this PR may not have logged in to Artifactory yet, check the PR status.%n" +
+                        "The user(s) listed in this PR may not have logged in to Artifactory yet, check the PR status.%n" +
                         "To check again, retrigger the build using Checks area or by closing and reopening the PR.",
                         IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
 
