@@ -651,7 +651,7 @@ public class IrcListener extends ListenerAdapter {
                         "- %s/browse/%s%n" +
                         "- https://github.com/%s/%s%n%n" +
                         "The user(s) listed in this PR may not have logged in to Artifactory yet, check the PR status.%n" +
-                        "To check again, retrigger the build using Checks area or by closing and reopening the PR.",
+                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.",
                         IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
 
                 GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
