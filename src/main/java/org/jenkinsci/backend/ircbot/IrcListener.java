@@ -638,7 +638,7 @@ public class IrcListener extends ListenerAdapter {
                         "paths:\n" +
                         "- \"" + artifactPath + "\"\n" +
                         "developers:\n";
-                StringBuffer userBuffer = new StringBuffer();
+                StringBuilder developerBuilder = new StringBuilder();
                 for(String u : releaseUsers) {
                     userBuffer.append("- \"" + u + "\"\n");
                 }
