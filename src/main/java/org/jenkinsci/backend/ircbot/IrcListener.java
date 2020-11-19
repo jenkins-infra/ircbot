@@ -657,7 +657,7 @@ public class IrcListener extends ListenerAdapter {
                 GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
                 prUrl = pr.getHtmlUrl().toString();
                 channel.send().message("Create PR for repository updater: " + prUrl);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 channel.send().message("Error creating PR: " + e.getMessage());
             }
         } else {
