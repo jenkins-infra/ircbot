@@ -618,11 +618,6 @@ public class IrcListener extends ListenerAdapter {
                 GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
 
 
-                GHContent prTemplate = repo.getFileContent(".github/PULL_REQUEST_TEMPLATE.md");
-                if (prTemplate == null) {
-                    out.message("Could not retrieve PR template for " + IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
-                    return null;
-                }
 
                 String artifactPath = getArtifactPath(channel, github, forkTo);
                 if (StringUtils.isBlank(artifactPath)) {
