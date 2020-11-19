@@ -659,8 +659,6 @@ public class IrcListener extends ListenerAdapter {
                 channel.send().message("Create PR for repository updater: " + prUrl);
             } catch (IOException e) {
                 channel.send().message("Error creating PR: " + e.getMessage());
-            } catch (Exception e) {
-                channel.send().message("Error creating PR: " + e.getMessage());
             }
         } else {
             out.message("Can only create PR's for plugin permissions at this time");
