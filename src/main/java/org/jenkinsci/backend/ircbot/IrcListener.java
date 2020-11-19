@@ -640,7 +640,7 @@ public class IrcListener extends ListenerAdapter {
                         "developers:\n";
                 StringBuilder developerBuilder = new StringBuilder();
                 for(String u : releaseUsers) {
-                    userBuffer.append("- \"" + u + "\"\n");
+                    developerBuilder.append("- \"" + u + "\"\n");
                 }
                 content += developerBuilder.toString();
 
