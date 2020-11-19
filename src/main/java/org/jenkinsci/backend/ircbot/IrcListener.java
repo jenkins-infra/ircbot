@@ -642,7 +642,7 @@ public class IrcListener extends ListenerAdapter {
                 for(String u : releaseUsers) {
                     userBuffer.append("- \"" + u + "\"\n");
                 }
-                content += userBuffer.toString();
+                content += developerBuilder.toString();
 
                 builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
 
