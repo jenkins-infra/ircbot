@@ -626,11 +626,6 @@ public class IrcListener extends ListenerAdapter {
                 GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
 
 
-                GHContent prTemplate = repo.getFileContent(".github/PULL_REQUEST_TEMPLATE.md");
-                if (prTemplate == null) {
-                    out.message("Could not retrieve PR template for " + IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
-                    return null;
-                }
 
                 String artifactPath = getArtifactPath(channel, github, forkTo);
                 if (StringUtils.isBlank(artifactPath)) {
@@ -651,11 +646,11 @@ public class IrcListener extends ListenerAdapter {
                         "paths:\n" +
                         "- \"" + artifactPath + "\"\n" +
                         "developers:\n";
-                StringBuffer userBuffer = new StringBuffer();
+                StringBuilder developerBuilder = new StringBuilder();
                 for(String u : releaseUsers) {
-                    userBuffer.append("- \"" + u + "\"\n");
+                    developerBuilder.append("- \"" + u + "\"\n");
                 }
-                content += userBuffer.toString();
+                content += developerBuilder.toString();
 
                 builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
 
@@ -663,15 +658,13 @@ public class IrcListener extends ListenerAdapter {
                         "This is an automatically created PR for:%n%n" +
                         "- %s/browse/%s%n" +
                         "- https://github.com/%s/%s%n%n" +
-                        "The user listed this PR may not have logged in to Artifactory yet, check the PR status.%n" +
-                        "To check again, retrigger the build using Checks area or by closing and reopening the PR.",
+                        "The user(s) listed in this PR may not have logged in to Artifactory yet, check the PR status.%n" +
+                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.",
                         IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
 
                 GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
                 prUrl = pr.getHtmlUrl().toString();
                 channel.send().message("Create PR for repository updater: " + prUrl);
-            } catch (IOException e) {
-                channel.send().message("Error creating PR: " + e.getMessage());
             } catch (Exception e) {
                 channel.send().message("Error creating PR: " + e.getMessage());
             }
