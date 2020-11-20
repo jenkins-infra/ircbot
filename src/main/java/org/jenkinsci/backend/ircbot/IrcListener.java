@@ -18,22 +18,37 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
+
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
+import org.jenkinsci.backend.ircbot.hosting.GradleVerifier;
+import org.jenkinsci.backend.ircbot.hosting.MavenVerifier;
+import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
-import org.pircbotx.*;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
+import org.kohsuke.github.GHContentBuilder;
 import org.kohsuke.github.GHOrganization;
+import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
 import org.kohsuke.github.GitHub;
+import org.pircbotx.Channel;
+import org.pircbotx.Configuration;
+import org.pircbotx.PircBotX;
+import org.pircbotx.User;
+import org.pircbotx.UserLevel;
 import org.pircbotx.output.OutputChannel;
 import org.pircbotx.output.OutputIRC;
 
@@ -400,20 +415,20 @@ public class IrcListener extends ListenerAdapter {
             String forkFrom = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_FROM_JIRA_FIELD, "");
             String userList = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.USER_LIST_JIRA_FIELD, "");
             for (String u : userList.split("\\n")) {
-                if(StringUtils.isNotBlank(u))
+                if (StringUtils.isNotBlank(u))
                     users.add(u.trim());
             }
             String forkTo = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_TO_JIRA_FIELD, defaultForkTo);
 
-            if(StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
+            if (StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
                 out.message("Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
 
             // Parse forkFrom in order to determine original repo owner and repo name
-            Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)",CASE_INSENSITIVE).matcher(forkFrom);
+            Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)", CASE_INSENSITIVE).matcher(forkFrom);
             if (m.matches()) {
-                if(!forkGitHub(channel,sender,m.group(1),m.group(2),forkTo, users)) {
+                if (!forkGitHub(channel, sender, m.group(1), m.group(2), forkTo, users)) {
                     out.message("Hosting request failed to fork repository on Github");
                     return;
                 }
@@ -423,9 +438,24 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // create the JIRA component
-            if(!createComponent(channel,sender,forkTo,defaultAssignee)) {
-                out.message("Hosting request failed to create component "+forkTo+" in JIRA");
+            if (!createComponent(channel, sender, forkTo, defaultAssignee)) {
+                out.message("Hosting request failed to create component " + forkTo + " in JIRA");
                 return;
+            }
+
+            String prUrl = createUploadPermissionPR(channel, sender, issueID, forkTo, users, Collections.singletonList(defaultAssignee));
+            if (StringUtils.isBlank(prUrl)) {
+                out.message("Could not create upload permission pull request");
+            }
+
+            String prDescription = "";
+            String repoPermissionsActionText = "Create PR for upload permissions";
+            if (!StringUtils.isBlank(prUrl)) {
+                prDescription = "\n\nA [pull request|" + prUrl + "] has been created against the repository permissions updater to "
+                        + "setup release permissions for " + defaultAssignee + ". Additional users can be added by modifying "
+                        + "the created file. " + defaultAssignee + " will need to login to Jenkins' [Artifactory|https://repo.jenkins-ci.org/webapp/#/login] "
+                        + "once before the permissions will be merged.";
+                repoPermissionsActionText = "Add additional users for upload permissions, if needed";
             }
 
             // update the issue with information on next steps
@@ -434,13 +464,14 @@ public class IrcListener extends ListenerAdapter {
                     + "https://github.com/jenkinsci/" + forkTo
                     + "\n\nA JIRA component named " + forkTo + " has also been created with "
                     + defaultAssignee + " as the default assignee for issues."
-                    + "\n\nPlease remove your original repository so that the jenkinsci repository "
-                    + "is the definitive source for the code. Also, please make sure you properly "
-                    + "follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
+                    + prDescription
+                    + "\n\nPlease remove your original repository (if there are no other forks) so that the jenkinsci organization repository "
+                    + "is the definitive source for the code. If there are other forks, please contact GitHub support to make the jenkinsci repo the root of the fork network (mention that Jenkins approval was given in support request 569994). "
+                    + "Also, please make sure you properly follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
                     + "so that your plugin is correctly documented. \n\n"
                     + "You will also need to do the following in order to push changes and release your plugin: \n\n"
                     + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
-                    + "* [Request upload permission|https://github.com/jenkins-infra/repository-permissions-updater/#requesting-permissions]\n"
+                    + "* [" + repoPermissionsActionText + "|https://github.com/jenkins-infra/repository-permissions-updater/#requesting-permissions]\n"
                     + "* [Releasing your plugin|https://jenkins.io/doc/developer/publishing/releasing/]\n"
                     + "\n\nIn order for your plugin to be built by the [Jenkins CI Infrastructure|https://ci.jenkins.io] and check pull requests,"
                     + " please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root of your repository with the following content:\n"
@@ -453,7 +484,7 @@ public class IrcListener extends ListenerAdapter {
 
             try {
                 Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), JiraHelper.DONE_JIRA_RESOLUTION_NAME);
-                if(transition != null) {
+                if (transition != null) {
                     Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", JiraHelper.DONE_JIRA_RESOLUTION_NAME)));
                     JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
                 } else {
@@ -470,7 +501,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             out.message("Hosting setup complete");
-        } catch(Exception e) {
+        } catch (IOException | URISyntaxException | ExecutionException | TimeoutException | InterruptedException e) {
             e.printStackTrace();
             out.message("Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
         } finally {
@@ -590,6 +621,72 @@ public class IrcListener extends ListenerAdapter {
         }
 
         return result;
+    }
+
+    String createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> ghUsers, List<String> releaseUsers) {
+        String prUrl = "";
+        boolean isPlugin = forkTo.endsWith("-plugin");
+        OutputChannel out = channel.send();
+        if(isPlugin) {
+            String branchName = "ircbot-" + forkTo + "-permissions";
+            try {
+                if (releaseUsers.isEmpty()) {
+                    out.message("No users defined for release permissions, will not create PR");
+                    return null;
+                }
+
+                GitHub github = GitHub.connect();
+                GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
+                GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
+
+
+
+                String artifactPath = getArtifactPath(channel, github, forkTo);
+                if (StringUtils.isBlank(artifactPath)) {
+                    out.message("Could not resolve artifact path for " + forkTo);
+                    return null;
+                }
+
+                if(!repo.getBranches().containsKey(branchName)) {
+                    repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
+                }
+
+                GHContentBuilder builder = repo.createContent();
+                builder = builder.branch(branchName).message("Adding upload permissions file for " + forkTo);
+                String name = forkTo.replace("-plugin", "");
+                String content = "---\n" +
+                        "name: \"" + name + "\"\n" +
+                        "github: \"jenkinsci/" + forkTo + "\"\n" +
+                        "paths:\n" +
+                        "- \"" + artifactPath + "\"\n" +
+                        "developers:\n";
+                StringBuilder developerBuilder = new StringBuilder();
+                for(String u : releaseUsers) {
+                    developerBuilder.append("- \"" + u + "\"\n");
+                }
+                content += developerBuilder.toString();
+
+                builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
+
+                String prText = String.format("Hello from your friendly Jenkins Hosting Bot!%n%n" +
+                        "This is an automatically created PR for:%n%n" +
+                        "- %s/browse/%s%n" +
+                        "- https://github.com/%s/%s%n%n" +
+                        "The user(s) listed in this PR may not have logged in to Artifactory yet, check the PR status.%n" +
+                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.",
+                        IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
+
+                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
+                prUrl = pr.getHtmlUrl().toString();
+                channel.send().message("Create PR for repository updater: " + prUrl);
+            } catch (Exception e) {
+                channel.send().message("Error creating PR: " + e.getMessage());
+            }
+        } else {
+            out.message("Can only create PR's for plugin permissions at this time");
+            return null;
+        }
+        return prUrl;
     }
 
     /**
@@ -986,8 +1083,6 @@ public class IrcListener extends ListenerAdapter {
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
                 // fall through
             }
-
-
             setupRepository(r);
 
             out.message("Created https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + (newName != null ? newName : repo));
@@ -1067,10 +1162,50 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
+    private static String getArtifactPath(Channel channel, GitHub github, String forkTo) throws IOException {
+        String res = "";
+
+        GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+        GHRepository fork = org.getRepository(forkTo);
+
+        if(fork == null) {
+            return null;
+        }
+
+        String artifactId = null;
+        String groupId = null;
+
+        String[] buildFiles = new String[] { "pom.xml", "build.gradle" };
+        for(String buildFile : buildFiles) {
+            try {
+                GHContent file = fork.getFileContent(buildFile);
+                if(file != null && file.isFile()) {
+                    String contents = IOUtils.toString(file.read(), StandardCharsets.UTF_8);
+                    if (buildFile.equalsIgnoreCase("pom.xml")) {
+                        artifactId = MavenVerifier.getArtifactId(contents);
+                        groupId = MavenVerifier.getGroupId(contents);
+                    } else if (buildFile.equalsIgnoreCase("build.gradle")) {
+                        artifactId = GradleVerifier.getShortName(contents);
+                        groupId = GradleVerifier.getGroupId(contents);
+                    }
+                    break;
+                }
+            } catch(IOException e) {
+                channel.send().message("Could not find supported build file (pom.xml or build.gradle) to get artifact path from.");
+                return null;
+            }
+        }
+
+        if(!StringUtils.isBlank(artifactId) && !StringUtils.isBlank((groupId))) {
+            res = String.format("%s/%s", groupId.replace('.', '/'), artifactId);
+        }
+        return res;
+    }
+
     public static void main(String[] args) throws Exception {
         Configuration.Builder builder = new Configuration.Builder()
                 .setName(IrcBotConfig.NAME)
-                .setServer(IrcBotConfig.SERVER, 6667)
+                .addServer(IrcBotConfig.SERVER, 6667)
                 .setAutoReconnect(true)
                 .addListener(new IrcListener(new File("unknown-commands.txt")));
 

@@ -20,6 +20,7 @@ import org.kohsuke.github.GitHub;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashSet;
@@ -89,6 +90,30 @@ public class MavenVerifier implements BuildSystemVerifier {
                 hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, HostingChecker.INVALID_FORK_FROM, forkFrom));
             }
         }
+    }
+
+    public static String getArtifactId(String contents) {
+        String res;
+        MavenXpp3Reader reader = new MavenXpp3Reader();
+        try(StringReader stringReader = new StringReader(contents)) {
+            Model model = reader.read(stringReader);
+            res = model.getArtifactId();
+        } catch(XmlPullParserException | IOException e) {
+            res = null;
+        }
+        return res;
+    }
+
+    public static String getGroupId(String contents) {
+        String res;
+        MavenXpp3Reader reader = new MavenXpp3Reader();
+        try(StringReader stringReader = new StringReader(contents)) {
+            Model model = reader.read(stringReader);
+            res = model.getGroupId();
+        } catch(XmlPullParserException | IOException e) {
+            res = null;
+        }
+        return res;
     }
 
     @Override

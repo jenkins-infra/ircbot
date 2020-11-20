@@ -114,100 +114,6 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
                             // There are other possibilities here, but we currently don't take them into account
                         }
 
-//                        try(BufferedReader reader = new BufferedReader(new InputStreamReader(input))) {
-//                            String line;
-//                            while((line = reader.readLine()) != null) {
-//                                line = line.trim();
-//                                if(StringUtils.isBlank(line)) continue;
-//
-//                                if(line.startsWith("jenkinsVersion")) {
-//                                    hasJenkinsVersion = true;
-//                                    String[] items = line.split("=");
-//                                    if(items.length == 2) {
-//                                        String coreVersion = items[1].replaceAll("^(\\s|['\"])*", "").replaceAll("(\\s|['\"])*$", "");
-//                                        Version jenkinsVersion = null;
-//                                        if(StringUtils.isNotBlank(coreVersion)) {
-//                                            jenkinsVersion = new Version(coreVersion);
-//                                        }
-//
-//                                        if(jenkinsVersion != null && jenkinsVersion.compareTo(HostingChecker.LOWEST_JENKINS_VERSION) < 0) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "Your build.gradle's jenkinsVersion=%s does not meet the minimum Jenkins version required, please update your jenkinsVersion to at least %s", jenkinsVersion, HostingChecker.LOWEST_JENKINS_VERSION));
-//                                        }
-//                                    }
-//                                    continue;
-//                                }
-//
-//                                if(line.startsWith("shortName")) {
-//                                    hasShortName = true;
-//                                    String[] items = line.split("=");
-//                                    if(items.length == 2) {
-//                                        String shortName = items[1].replaceAll("^(\\s|['\"])*", "").replaceAll("(\\s|['\"])*$", "");
-//                                        if(!shortName.equals(forkTo.replace("-plugin", ""))) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The shortName from the build.gradle (%s) is incorrect, it should be %s (new repository name with -plugin removed)", shortName, forkTo.replace("-plugin", "")));
-//                                        }
-//
-//                                        if(shortName.toLowerCase().contains("jenkins")) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The shortName from the build.gradle (%s) should not contain \"Jenkins\"", shortName));
-//                                        }
-//
-//                                        if(!shortName.equals(shortName.toLowerCase())) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The shortName from the build.gradle (%s) should be all lower case", shortName));
-//                                        }
-//                                    }
-//                                    continue;
-//                                }
-//
-//                                if(line.startsWith("displayName")) {
-//                                    hasDisplayName = true;
-//                                    String[] items = line.split("=");
-//                                    if(items.length == 2) {
-//                                        String name = items[1].replaceAll("^(\\s|['\"])*", "").replaceAll("(\\s|['\"])*$", "");
-//                                        if(StringUtils.isBlank(name)) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The displayName from the build.gradle is blank or missing"));
-//                                        }
-//
-//                                        if(name.toLowerCase().contains("jenkins")) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The displayName should not contain \"Jenkins\""));
-//                                        }
-//                                    }
-//                                    continue;
-//                                }
-//
-//                                if(line.startsWith("description")) {
-//                                    hasDescription = true;
-//                                    String[] items = line.split("=");
-//                                    if(items.length == 2) {
-//                                        String description = items[1].replaceAll("^(\\s|['\"])*", "").replaceAll("(\\s|['\"])*$", "");
-//                                        if(StringUtils.isBlank(description)) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The description from the build.gradle is blank or missing"));
-//                                        }
-//
-//                                        if(description.toLowerCase().contains("jenkins")) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The description should not contain \"Jenkins\""));
-//                                        }
-//                                    }
-//                                    continue;
-//                                }
-//
-//                                if(line.startsWith("group")) {
-//                                    hasGroup = true;
-//                                    String[] items = line.split("=");
-//                                    if(items.length == 2) {
-//                                        String group = items[1].replaceAll("^(\\s|['\"])*", "").replaceAll("(\\s|['\"])*$", "");
-//                                        if(group.equals("org.jenkins-ci.plugins")) {
-//                                            hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, "The groupId for your build.gradle should be \"io.jenkins.plugins\"."));
-//                                        }
-//                                    }
-//                                    continue;
-//                                }
-//
-//                                if(line.startsWith("license")) {
-//                                    hasLicense = true;
-//                                }
-//                            }
-//                        }
-//                    }
-
                         if (!hasJenkinsVersion) {
                             hostingIssues.add(new VerificationMessage(VerificationMessage.Severity.REQUIRED, MISSING_JENKINS_VERSION));
                         }
@@ -244,6 +150,62 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
     @Override
     public boolean hasBuildFile(Issue issue) throws IOException {
         return HostingChecker.fileExistsInRepo(issue, "build.gradle");
+    }
+
+    public static String getShortName(String contents) {
+        String res = null;
+
+        AstBuilder astBuilder = new AstBuilder();
+        List<ASTNode> nodes = astBuilder.buildFromString(CompilePhase.SEMANTIC_ANALYSIS, false, contents);
+
+        BlockStatement node = (BlockStatement) nodes.get(0);
+        for (Statement s : node.getStatements()) {
+            Expression e = ((ExpressionStatement) s).getExpression();
+            if (e instanceof MethodCallExpression) {
+                MethodCallExpression mc = (MethodCallExpression) e;
+                if (mc.getMethodAsString().equals("jenkinsPlugin")) {
+                    Expression jenkinsPlugin = ((ArgumentListExpression) mc.getArguments()).getExpression(0);
+                    if (jenkinsPlugin instanceof ClosureExpression) {
+                        ClosureExpression c = (ClosureExpression) jenkinsPlugin;
+                        for (Statement st : ((BlockStatement) c.getCode()).getStatements()) {
+                            ExpressionStatement sm = (ExpressionStatement) st;
+                            if (sm.getExpression() instanceof BinaryExpression) {
+                                BinaryExpression be = (BinaryExpression) sm.getExpression();
+                                if (be.getLeftExpression().getText().equals("shortName")) {
+                                    if (be.getRightExpression() instanceof ConstantExpression) {
+                                        res = be.getRightExpression().getText();
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return res;
+    }
+
+    public static String getGroupId(String contents) {
+        String res = null;
+        AstBuilder astBuilder = new AstBuilder();
+        List<ASTNode> nodes = astBuilder.buildFromString(CompilePhase.SEMANTIC_ANALYSIS, false, contents);
+
+        BlockStatement node = (BlockStatement) nodes.get(0);
+        for (Statement s : node.getStatements()) {
+            Expression e = ((ExpressionStatement) s).getExpression();
+            if (e instanceof BinaryExpression) {
+                BinaryExpression be = (BinaryExpression) e;
+                VariableExpression v = (VariableExpression) be.getLeftExpression();
+                if (v.getName().equals("group")) {
+                    if (be.getRightExpression() instanceof ConstantExpression) {
+                        res = e.getText();
+                        break;
+                    }
+                }
+            }
+        }
+        return res;
     }
 
     private void checkPluginVersion(Expression plugins, HashSet<VerificationMessage> hostingIssues) {

@@ -11,7 +11,7 @@ VERSION_BUILD_URL=$(BUILD_URL)
 VERSION_GIT_COMMIT=$(GIT_COMMIT)
 
 target/ircbot-2.0-SNAPSHOT-bin.zip : ${VERSION_FILE}
-	mvn install
+	mvn -ntp install
 
 ${VERSION_FILE} : ${VERSION_FILE_DIR}
 	echo buildNumber=${VERSION_BUILD_NUMBER} > ${VERSION_FILE}
