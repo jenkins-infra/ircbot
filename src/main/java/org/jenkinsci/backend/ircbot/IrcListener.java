@@ -180,13 +180,13 @@ public class IrcListener extends ListenerAdapter {
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, sender, m.group(1), m.group(2));
+            createGitHubRepository(channel, sender, m.group(1), m.group(2), false);
             return;
         }
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList());
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList(), false);
             return;
         }
 
