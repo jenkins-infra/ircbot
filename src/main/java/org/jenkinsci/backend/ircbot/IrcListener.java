@@ -178,15 +178,15 @@ public class IrcListener extends ListenerAdapter {
     private void handleDirectCommand(Channel channel, User sender, String payload) {
         Matcher m;
 
-        m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, sender, m.group(1), m.group(2), false);
+            createGitHubRepository(channel, sender, m.group(1), m.group(2), m.group(3).toLowerCase().contains("github"));
             return;
         }
 
-        m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList(), false);
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList(), m.group(4).toLowerCase().contains("github"));
             return;
         }
 
