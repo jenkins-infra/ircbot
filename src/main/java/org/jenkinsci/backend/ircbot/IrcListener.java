@@ -180,15 +180,15 @@ public class IrcListener extends ListenerAdapter {
     private void handleDirectCommand(Channel channel, User sender, String payload) {
         Matcher m;
 
-        m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, sender, m.group(1), m.group(2));
+            createGitHubRepository(channel, sender, m.group(1), m.group(2), m.group(3).toLowerCase().contains("github"));
             return;
         }
 
-        m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList());
+            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList(), m.group(4).toLowerCase().contains("github"));
             return;
         }
 
@@ -416,6 +416,7 @@ public class IrcListener extends ListenerAdapter {
 
             String forkFrom = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_FROM_JIRA_FIELD, "");
             String userList = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.USER_LIST_JIRA_FIELD, "");
+            String issueTrackerChoice = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.ISSUE_TRACKER_JIRA_FIELD, "");
             for (String u : userList.split("\\n")) {
                 if (StringUtils.isNotBlank(u))
                     users.add(u.trim());
@@ -430,7 +431,7 @@ public class IrcListener extends ListenerAdapter {
             // Parse forkFrom in order to determine original repo owner and repo name
             Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)", CASE_INSENSITIVE).matcher(forkFrom);
             if (m.matches()) {
-                if (!forkGitHub(channel, sender, m.group(1), m.group(2), forkTo, users)) {
+                if (!forkGitHub(channel, sender, m.group(1), m.group(2), forkTo, users, !issueTrackerChoice.contains("Jira"))) {
                     out.message("Hosting request failed to fork repository on Github");
                     return;
                 }
@@ -440,7 +441,7 @@ public class IrcListener extends ListenerAdapter {
             }
 
             // create the JIRA component
-            if (!createComponent(channel, sender, forkTo, defaultAssignee)) {
+            if (issueTrackerChoice.contains("Jira") && !createComponent(channel, sender, forkTo, defaultAssignee)) {
                 out.message("Hosting request failed to create component " + forkTo + " in JIRA");
                 return;
             }
@@ -460,12 +461,19 @@ public class IrcListener extends ListenerAdapter {
                 repoPermissionsActionText = "Add additional users for upload permissions, if needed";
             }
 
+            String issueTrackerText = "";
+            if(issueTrackerChoice.contains("Jira")) {
+                issueTrackerText = "\n\nA Jira component named " + forkTo + " has also been created with "
+                        + defaultAssignee + " as the default assignee for issues.";
+            } else {
+                issueTrackerText = "\n\nGitHub issues has been selected for issue tracking and was enabled for the forked repo.";
+            }
+
             // update the issue with information on next steps
             String msg = "At the request of " + sender.getNick() + " on IRC, "
                     + "the code has been forked into the jenkinsci project on GitHub as "
                     + "https://github.com/jenkinsci/" + forkTo
-                    + "\n\nA JIRA component named " + forkTo + " has also been created with "
-                    + defaultAssignee + " as the default assignee for issues."
+                    + issueTrackerText
                     + prDescription
                     + "\n\nPlease remove your original repository (if there are no other forks) so that the jenkinsci organization repository "
                     + "is the definitive source for the code. If there are other forks, please contact GitHub support to make the jenkinsci repo the root of the fork network (mention that Jenkins approval was given in support request 569994). "
@@ -849,7 +857,7 @@ public class IrcListener extends ListenerAdapter {
         channel.send().message("Voice privilege (-V) removed for " + target);
     }
 
-    private void createGitHubRepository(Channel channel, User sender, String name, String collaborator) {
+    private void createGitHubRepository(Channel channel, User sender, String name, String collaborator, boolean useGHIssues) {
         OutputChannel out = channel.send();
         try {
             if (!isSenderAuthorized(channel,sender)) {
@@ -860,7 +868,7 @@ public class IrcListener extends ListenerAdapter {
             GitHub github = GitHub.connect();
             GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
             GHRepository r = org.createRepository(name).private_(false).create();
-            setupRepository(r);
+            setupRepository(r, useGHIssues);
 
             getOrCreateRepoLocalTeam(out, github, org, r, singletonList(collaborator));
 
@@ -1011,7 +1019,7 @@ public class IrcListener extends ListenerAdapter {
      * @param newName
      *      If not null, rename a repository after a fork.
      */
-    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName, List<String> maintainers) {
+    boolean forkGitHub(Channel channel, User sender, String owner, String repo, String newName, List<String> maintainers, boolean useGHIssues) {
         boolean result = false;
         OutputChannel out = channel.send();
         try {
@@ -1087,7 +1095,7 @@ public class IrcListener extends ListenerAdapter {
                 out.message("Failed to add "+user+" to the new repository. Maybe an org?: "+e.getMessage());
                 // fall through
             }
-            setupRepository(r);
+            setupRepository(r, useGHIssues);
 
             out.message("Created https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + (newName != null ? newName : repo));
 
@@ -1110,8 +1118,10 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Fix up the repository set up to our policy.
      */
-    private static void setupRepository(GHRepository r) throws IOException {
-        r.enableIssueTracker(false);
+    private static void setupRepository(GHRepository r, boolean useGHIssues) throws IOException {
+        if(!useGHIssues) {
+            r.enableIssueTracker(false);
+        }
         r.enableWiki(false);
     }
 

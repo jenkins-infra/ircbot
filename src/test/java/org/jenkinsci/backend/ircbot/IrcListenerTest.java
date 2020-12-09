@@ -69,7 +69,7 @@ public class IrcListenerTest extends TestCase {
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
 
-        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
+        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList(), false));
     }
 
     public void testForkOriginSameNameAsExisting() throws Exception {
@@ -132,7 +132,7 @@ public class IrcListenerTest extends TestCase {
         ImmutableSortedSet.Builder<UserLevel> builder = ImmutableSortedSet.naturalOrder();
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
-        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
+        assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList(), false));
     }
 
     public void testForkOriginSameNameAsRenamed() throws Exception {
@@ -202,6 +202,6 @@ public class IrcListenerTest extends TestCase {
         ImmutableSortedSet.Builder<UserLevel> builder = ImmutableSortedSet.naturalOrder();
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
-        assertTrue(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList()));
+        assertTrue(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList(), false));
     }
 }

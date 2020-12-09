@@ -39,6 +39,9 @@ import java.util.concurrent.TimeoutException;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+
+import org.codehaus.jettison.json.JSONException;
+import org.codehaus.jettison.json.JSONObject;
 import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
 
 /**
@@ -51,6 +54,7 @@ public class JiraHelper {
     public static final String FORK_TO_JIRA_FIELD = "customfield_10321";
     public static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
     public static final String USER_LIST_JIRA_FIELD = "customfield_10323";
+    public static final String ISSUE_TRACKER_JIRA_FIELD = "customfield_11320";
     public static final String DONE_JIRA_RESOLUTION_NAME = "Done";
     
     /**
@@ -150,7 +154,21 @@ public class JiraHelper {
             if (thisFieldId.equalsIgnoreCase(fieldId)) {
                 Object _value = val.getValue();
                 if (_value != null) {
-                    res = _value.toString();
+                    if(_value instanceof  String) {
+                        res = (String) _value;
+                        break;
+                    } else if (_value instanceof JSONObject) {
+                        JSONObject _jsonValue = (JSONObject)_value;
+                        if(_jsonValue.has("value")) {
+                            try {
+                                res = _jsonValue.getString("value");
+                                break;
+                            } catch(JSONException e) {
+                                // we should log this?
+                                res = defaultValue;
+                            }
+                        }
+                    }
                 }
             }
         }
