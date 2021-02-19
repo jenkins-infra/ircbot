@@ -77,6 +77,8 @@ import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
+import static java.util.stream.Collectors.joining;
+
 import javax.annotation.CheckForNull;
 
 /**
@@ -675,7 +677,7 @@ public class IrcListener extends ListenerAdapter {
                 String name = forkTo.replace("-plugin", "");
                 String content = "---\n" +
                         "name: \"" + name + "\"\n" +
-                        "github: &GH \"jenkinsci/" + forkTo + "\"\n" +
+                        "github: &GH \"" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + forkTo + "\"\n" +
                         "paths:\n" +
                         "- \"" + artifactPath + "\"\n" +
                         "developers:\n";
@@ -698,9 +700,11 @@ public class IrcListener extends ListenerAdapter {
                         "This is an automatically created PR for:%n%n" +
                         "- %s/browse/%s%n" +
                         "- https://github.com/%s/%s%n%n" +
-                        "The user(s) listed in this PR may not have logged in to Artifactory yet, check the PR status.%n" +
-                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.",
-                        IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION, forkTo);
+                        "The user(s) listed in the permissions file may not have logged in to Artifactory yet, check the PR status.%n" +
+                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.%n%n" +
+                        "cc %s",
+                        IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION,
+                        forkTo, ghUsers.stream().map(u -> "@" + u).collect(joining(", ")));
 
                 GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
                 prUrl = pr.getHtmlUrl().toString();
