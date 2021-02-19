@@ -406,7 +406,7 @@ public class IrcListener extends ListenerAdapter {
 
             final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
             if (reporter == null) {
-                // It should not be possible in Jenkins JIRA unless the unprobable user deletion case
+                // It should not be possible in Jenkins JIRA unless the improbable user deletion case
                 out.message("Warning: Default assignee is not specified in the reporter field. "
                         + "Component lead won't be set.");
             }
@@ -444,7 +444,20 @@ public class IrcListener extends ListenerAdapter {
                 return;
             }
 
-            String prUrl = createUploadPermissionPR(channel, sender, issueID, forkTo, users, Collections.singletonList(defaultAssignee));
+            String componentId = "";
+            try {
+                if(issueTrackerChoice.contains("Jira")) {
+                    BasicComponent component = JiraHelper.getBasicComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, forkTo);
+                    if (component != null) {
+                        componentId = component.getId().toString();
+                    }
+                }
+            } catch(IOException | TimeoutException | ExecutionException | InterruptedException ex) {
+                out.message("Could not get component ID for " + forkTo + " component in Jira");
+                componentId = "";
+            }
+
+            String prUrl = createUploadPermissionPR(channel, sender, issueID, forkTo, users, Collections.singletonList(defaultAssignee), !issueTrackerChoice.contains("Jira"), componentId);
             if (StringUtils.isBlank(prUrl)) {
                 out.message("Could not create upload permission pull request");
             }
@@ -631,7 +644,7 @@ public class IrcListener extends ListenerAdapter {
         return result;
     }
 
-    String createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> ghUsers, List<String> releaseUsers) {
+    String createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> ghUsers, List<String> releaseUsers, boolean useGHIssues, String jiraComponentId) {
         String prUrl = "";
         boolean isPlugin = forkTo.endsWith("-plugin");
         OutputChannel out = channel.send();
@@ -646,8 +659,6 @@ public class IrcListener extends ListenerAdapter {
                 GitHub github = GitHub.connect();
                 GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
                 GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
-
-
 
                 String artifactPath = getArtifactPath(channel, github, forkTo);
                 if (StringUtils.isBlank(artifactPath)) {
@@ -664,7 +675,7 @@ public class IrcListener extends ListenerAdapter {
                 String name = forkTo.replace("-plugin", "");
                 String content = "---\n" +
                         "name: \"" + name + "\"\n" +
-                        "github: \"jenkinsci/" + forkTo + "\"\n" +
+                        "github: &GH \"jenkinsci/" + forkTo + "\"\n" +
                         "paths:\n" +
                         "- \"" + artifactPath + "\"\n" +
                         "developers:\n";
@@ -673,6 +684,13 @@ public class IrcListener extends ListenerAdapter {
                     developerBuilder.append("- \"" + u + "\"\n");
                 }
                 content += developerBuilder.toString();
+
+                content += "issues:\n";
+                if(useGHIssues) {
+                    content += "  - github: *GH\n";
+                } else if(StringUtils.isNotEmpty(jiraComponentId)) {
+                    content += "  - jira: " + jiraComponentId + "\n";
+                }
 
                 builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
 
@@ -1115,9 +1133,7 @@ public class IrcListener extends ListenerAdapter {
      * Fix up the repository set up to our policy.
      */
     private static void setupRepository(GHRepository r, boolean useGHIssues) throws IOException {
-        if(!useGHIssues) {
-            r.enableIssueTracker(false);
-        }
+        r.enableIssueTracker(useGHIssues);
         r.enableWiki(false);
     }
 
