@@ -5,6 +5,7 @@ import com.atlassian.jira.rest.client.api.domain.Issue;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import junitparams.naming.TestCaseName;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,6 +15,7 @@ import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
 import org.powermock.modules.junit4.PowerMockRunnerDelegate;
 
+import java.nio.charset.Charset;
 import java.util.HashSet;
 
 import static org.junit.Assert.assertEquals;
@@ -55,6 +57,24 @@ public class GradleVerifierTest {
     public Object[] parametersForGradleVerifierTests() {
         return new Object[]{
                 new Object[]{"All Good", "all-good-build.gradle", null},
+        };
+    }
+
+    @Test
+    @Parameters
+    @TestCaseName("gradleShortNameGroupTests({0})")
+    public void gradleShortNameGroupTests(String testName, String buildGradleFile) throws Exception {
+        String content = IOUtils.toString(getClass().getClassLoader().getResourceAsStream(buildGradleFile), Charset.defaultCharset());
+
+        String groupId = GradleVerifier.getGroupId(content);
+        String artifactId = GradleVerifier.getShortName(content);
+        assertEquals("io.jenkins.plugins", groupId);
+        assertEquals("npm-yarn-wrapper-steps", artifactId);
+    }
+
+    public Object[] parametersForGradleShortNameGroupTests() {
+        return new Object[] {
+                new Object[] { "Short Name/Group", "gradle-artifact-path-test.gradle"}
         };
     }
 }

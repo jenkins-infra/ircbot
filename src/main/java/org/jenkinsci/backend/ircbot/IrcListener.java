@@ -1222,7 +1222,7 @@ public class IrcListener extends ListenerAdapter {
                     break;
                 }
             } catch(IOException e) {
-                channel.send().message("Could not find supported build file (pom.xml or build.gradle) to get artifact path from.");
+                channel.send().message("Could not find supported build file (pom.xml or build.gradle) to get artifact path from or another error occurred.");
                 return null;
             }
         }
