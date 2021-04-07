@@ -157,6 +157,7 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
 
         AstBuilder astBuilder = new AstBuilder();
         List<ASTNode> nodes = astBuilder.buildFromString(CompilePhase.SEMANTIC_ANALYSIS, false, contents);
+        boolean isDone = false;
 
         BlockStatement node = (BlockStatement) nodes.get(0);
         for (Statement s : node.getStatements()) {
@@ -174,13 +175,20 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
                                 if (be.getLeftExpression().getText().equals("shortName")) {
                                     if (be.getRightExpression() instanceof ConstantExpression) {
                                         res = be.getRightExpression().getText();
+                                        isDone = true;
                                         break;
                                     }
                                 }
                             }
+                            if(isDone) {
+                                break;
+                            }
                         }
                     }
                 }
+            }
+            if(isDone) {
+                break;
             }
         }
         return res;
@@ -199,7 +207,7 @@ public class GradleVerifier extends CodeVisitorSupport implements BuildSystemVer
                 VariableExpression v = (VariableExpression) be.getLeftExpression();
                 if (v.getName().equals("group")) {
                     if (be.getRightExpression() instanceof ConstantExpression) {
-                        res = e.getText();
+                        res = be.getRightExpression().getText();
                         break;
                     }
                 }
