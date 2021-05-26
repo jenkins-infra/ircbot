@@ -83,7 +83,7 @@ import static java.util.stream.Collectors.joining;
 import javax.annotation.CheckForNull;
 
 /**
- * IRC Bot on irc.freenode.net as a means to delegate administrative work to committers.
+ * IRC Bot on irc.libera.chat as a means to delegate administrative work to committers.
  *
  * @author Kohsuke Kawaguchi
  */
