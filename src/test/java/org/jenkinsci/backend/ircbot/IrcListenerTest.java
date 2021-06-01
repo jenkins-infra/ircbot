@@ -3,12 +3,7 @@ package org.jenkinsci.backend.ircbot;
 import com.google.common.collect.ImmutableSortedSet;
 import junit.framework.TestCase;
 import org.junit.runner.RunWith;
-import org.kohsuke.github.GHOrganization;
-import org.kohsuke.github.GHRepository;
-import org.kohsuke.github.GHTeam;
-import org.kohsuke.github.GHTeamBuilder;
-import org.kohsuke.github.GHUser;
-import org.kohsuke.github.GitHub;
+import org.kohsuke.github.*;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -203,5 +198,64 @@ public class IrcListenerTest extends TestCase {
         builder.add(UserLevel.VOICE);
         when(sender.getUserLevels(chan)).thenReturn(builder.build());
         assertTrue(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList(), false));
+    }
+
+    public void testCreateRepoWithNoIssueTracker() throws Exception {
+        // see https://github.com/jenkins-infra/ircbot/issues/101
+
+        final String repoName = "memkins";
+        final String channel = "#dummy";
+        final String botUser = "bot-user";
+        final String owner = "bar";
+        final String from = "foobar";
+
+        PowerMockito.mockStatic(GitHub.class);
+
+        GitHub gh = mock(GitHub.class);
+        when(GitHub.connect()).thenReturn(gh);
+
+        GHUser awesomeUser = mock(GHUser.class);
+        when(gh.getUser("awesome-user")).thenReturn(awesomeUser);
+
+        GHRepository repo = mock(GHRepository.class);
+        when(repo.getName()).thenReturn("memkins");
+
+        GHCreateRepositoryBuilder repositoryBuilder = mock(GHCreateRepositoryBuilder.class);
+        when(repositoryBuilder.private_(false)).thenReturn(repositoryBuilder);
+
+        GHOrganization gho = mock(GHOrganization.class);
+        when(gho.createRepository("memkins")).thenReturn(repositoryBuilder);
+        when(gho.hasMember(awesomeUser)).thenReturn(true);
+
+        when(repositoryBuilder.create()).thenReturn(repo);
+
+        when(gh.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION)).thenReturn(gho);
+
+        GHTeam team = mock(GHTeam.class);
+
+        GHTeamBuilder teamBuilder = mock(GHTeamBuilder.class);
+        when(gho.createTeam("memkins Developers")).thenReturn(teamBuilder);
+        when(teamBuilder.privacy(GHTeam.Privacy.CLOSED)).thenReturn(teamBuilder);
+        when(teamBuilder.maintainers(any())).thenReturn(teamBuilder);
+        when(teamBuilder.create()).thenReturn(team);
+
+        System.setProperty("ircbot.testSuperUser", botUser);
+
+        IrcListener ircListener = new IrcListener(null);
+        User sender = mock(User.class);
+        when(sender.getNick()).thenReturn(botUser);
+
+        Channel chan = mock(Channel.class);
+        when(chan.getName()).thenReturn(channel);
+
+        OutputChannel out = mock(OutputChannel.class);
+        when(chan.send()).thenReturn(out);
+
+        ImmutableSortedSet.Builder<UserLevel> builder = ImmutableSortedSet.naturalOrder();
+        builder.add(UserLevel.VOICE);
+        when(sender.getUserLevels(chan)).thenReturn(builder.build());
+
+        ircListener.handleDirectCommand(chan, sender, "Create memkins on github for awesome-user");
+        //assertFalse(ircListener.forkGitHub(chan, sender, owner, from, repoName, emptyList(), false));
     }
 }
