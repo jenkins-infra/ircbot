@@ -5,10 +5,10 @@ podTemplate(
             image: 'maven:3-eclipse-temurin-8',
             command: 'cat',
             ttyEnabled: true,
-            resourceRequestCpu: '200m',
-            resourceLimitCpu: '200m',
-            resourceRequestMemory: '512Mi',
-            resourceLimitMemory: '512Mi',
+            resourceRequestCpu: '2000m',
+            resourceLimitCpu: '2000m',
+            resourceRequestMemory: '2048Mi',
+            resourceLimitMemory: '2048Mi',
         ),
     ]
 ) {
