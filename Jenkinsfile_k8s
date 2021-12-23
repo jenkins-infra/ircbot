@@ -39,7 +39,7 @@ podTemplate(
                 junit '**/target/surefire-reports/**/*.xml'
             }
             stage('Docker build and publish + updatecli') {
-                parallelDockerUpdatecli([imageName: 'helmfile'])
+                parallelDockerUpdatecli([imageName: 'ircbot'])
             } // stage
         } // container
     } // node
