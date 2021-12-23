@@ -6,9 +6,9 @@ podTemplate(
             command: 'cat',
             ttyEnabled: true,
             resourceRequestCpu: '200m',
-            resourceLimitCpu: '400m',
-            resourceRequestMemory: '256Mi',
-            resourceLimitMemory: '1024Mi',
+            resourceLimitCpu: '200m',
+            resourceRequestMemory: '512Mi',
+            resourceLimitMemory: '512Mi',
         ),
     ]
 ) {
