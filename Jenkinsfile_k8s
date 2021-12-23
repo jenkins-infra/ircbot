@@ -1,0 +1,45 @@
+podTemplate(
+    containers: [
+        containerTemplate(
+            name: 'maven8',
+            image: 'maven:3-eclipse-temurin-8',
+            command: 'cat',
+            ttyEnabled: true,
+            resourceRequestCpu: '200m',
+            resourceLimitCpu: '200m',
+            resourceRequestMemory: '256Mi',
+            resourceLimitMemory: '256Mi',
+        ),
+    ]
+) {
+    node(POD_LABEL) {
+        container('maven8') {
+            stage('Checkout') {
+                deleteDir()
+                checkout scm
+                /* Using this hack right now to grab the appropriate abbreviated SHA1 of
+                * our current build's commit. We must do this because right now I cannot
+                * refer to `env.GIT_COMMIT` in Pipeline scripts
+                */
+                sh 'git rev-parse HEAD > GIT_COMMIT'
+                shortCommit = readFile('GIT_COMMIT').take(6)
+                imageTag = "${env.BUILD_ID}-build${shortCommit}"
+            }
+            stage('Build ircbot') {
+                withEnv([
+                    "BUILD_NUMBER=${env.BUILD_NUMBER}:${shortCommit}"
+                ]) {
+                    timestamps {
+                        sh 'make bot'
+                    }
+                }
+            }
+            stage('Archive Test Results') {
+                junit '**/target/surefire-reports/**/*.xml'
+            }
+            stage('Docker build and publish + updatecli') {
+                parallelDockerUpdatecli([imageName: 'helmfile'])
+            } // stage
+        } // container
+    } // node
+} // podTemplate
