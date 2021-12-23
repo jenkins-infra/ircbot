@@ -30,7 +30,7 @@ podTemplate(
                     "BUILD_NUMBER=${env.BUILD_NUMBER}:${shortCommit}"
                 ]) {
                     timestamps {
-                        sh 'apt-get update && apt-get install build-essential'
+                        sh 'apt-get update && apt-get install -y build-essential'
                         sh 'make bot'
                     }
                 }
