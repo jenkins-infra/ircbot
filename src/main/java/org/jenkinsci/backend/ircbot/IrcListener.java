@@ -1,46 +1,26 @@
 package org.jenkinsci.backend.ircbot;
 
 import com.atlassian.jira.rest.client.api.ComponentRestClient;
-import com.atlassian.jira.rest.client.api.IssueRestClient;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
-import com.atlassian.jira.rest.client.api.RestClientException;
 import com.atlassian.jira.rest.client.api.domain.AssigneeType;
-import com.atlassian.jira.rest.client.api.domain.BasicComponent;
-import com.atlassian.jira.rest.client.api.domain.Comment;
 import com.atlassian.jira.rest.client.api.domain.Component;
-import com.atlassian.jira.rest.client.api.domain.Issue;
-import com.atlassian.jira.rest.client.api.domain.Transition;
-import com.atlassian.jira.rest.client.api.domain.input.ComplexIssueInputFieldValue;
 import com.atlassian.jira.rest.client.api.domain.input.ComponentInput;
-import com.atlassian.jira.rest.client.api.domain.input.FieldInput;
-import com.atlassian.jira.rest.client.api.domain.input.TransitionInput;
 import com.atlassian.util.concurrent.Promise;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
-import org.jenkinsci.backend.ircbot.hosting.GradleVerifier;
-import org.jenkinsci.backend.ircbot.hosting.MavenVerifier;
-import org.kohsuke.github.GHContent;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
 import org.pircbotx.cap.SASLCapHandler;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
-import org.kohsuke.github.GHContentBuilder;
 import org.kohsuke.github.GHOrganization;
-import org.kohsuke.github.GHPullRequest;
 import org.kohsuke.github.GHRepository;
 import org.kohsuke.github.GHTeam;
 import org.kohsuke.github.GHUser;
@@ -59,26 +39,21 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
 import java.security.GeneralSecurityException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static java.util.Arrays.asList;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.regex.Pattern.*;
-import static java.util.stream.Collectors.joining;
 
 import javax.annotation.CheckForNull;
 
@@ -283,19 +258,9 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:host|approve) (?:hosting-)(\\d+)((?:[ ]+)(\\S+))?", CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:set) (?:topic) (.*)", CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            String forkTo = "";
-            if(m.groupCount() > 1) {
-                forkTo = m.group(2);
-            }
-            setupHosting(channel,sender,m.group(1),forkTo);
-            return;
-        }
-
-        m = Pattern.compile("(?:check) (?:hosting-)(\\d+)", CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            checkHosting(channel,sender,m.group(1));
+            setTopic(channel,sender,m.group(1));
             return;
         }
 
@@ -387,166 +352,24 @@ public class IrcListener extends ListenerAdapter {
         channel.send().setTopic(newTopic);
     }
 
-    private void setupHosting(Channel channel, User sender, String hostingId, String defaultForkTo) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
             return;
         }
 
         OutputChannel out = channel.send();
-
-        final String issueID = "HOSTING-" + hostingId;
-        out.message("Approving hosting request " + issueID);
-
-        replyBugStatus(channel, issueID);
-        JiraRestClient client = null;
-
         try {
-            client = JiraHelper.createJiraClient();
-            final IssueRestClient issueClient = client.getIssueClient();
-            final Issue issue = JiraHelper.getIssue(client, issueID);
-            List<String> users = new ArrayList<String>();
 
-            final com.atlassian.jira.rest.client.api.domain.User reporter = issue.getReporter();
-            if (reporter == null) {
-                // It should not be possible in Jenkins JIRA unless the improbable user deletion case
-                out.message("Warning: Default assignee is not specified in the reporter field. "
-                        + "Component lead won't be set.");
-            }
-            String defaultAssignee = reporter != null ? reporter.getName() : "";
-
-            String forkFrom = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_FROM_JIRA_FIELD, "");
-            String userList = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.USER_LIST_JIRA_FIELD, "");
-            String issueTrackerChoice = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.ISSUE_TRACKER_JIRA_FIELD, "");
-            for (String u : userList.split("\\n")) {
-                if (StringUtils.isNotBlank(u))
-                    users.add(u.trim());
-            }
-            String forkTo = JiraHelper.getFieldValueOrDefault(issue, JiraHelper.FORK_TO_JIRA_FIELD, defaultForkTo);
-
-            if (StringUtils.isBlank(forkFrom) || StringUtils.isBlank(forkTo) || users.isEmpty()) {
-                out.message("Could not retrieve information (or information does not exist) from the HOSTING JIRA");
                 return;
             }
 
-            // Parse forkFrom in order to determine original repo owner and repo name
-            Matcher m = Pattern.compile("(?:https:\\/\\/github\\.com/)?(\\S+)\\/(\\S+)", CASE_INSENSITIVE).matcher(forkFrom);
-            if (m.matches()) {
-                if (!forkGitHub(channel, sender, m.group(1), m.group(2), forkTo, users, !issueTrackerChoice.contains("Jira"))) {
-                    out.message("Hosting request failed to fork repository on Github");
-                    return;
-                }
+                return;
+            }
+
+
+            }
+
             } else {
-                out.message("ERROR: Cannot parse the source repo: " + forkFrom);
-                return;
-            }
-
-            // create the JIRA component
-            if (issueTrackerChoice.contains("Jira") && !createComponent(channel, sender, forkTo, defaultAssignee)) {
-                out.message("Hosting request failed to create component " + forkTo + " in JIRA");
-                return;
-            }
-
-            String componentId = "";
-            try {
-                if(issueTrackerChoice.contains("Jira")) {
-                    BasicComponent component = JiraHelper.getBasicComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, forkTo);
-                    if (component != null) {
-                        componentId = component.getId().toString();
-                    }
-                }
-            } catch(IOException | TimeoutException | ExecutionException | InterruptedException ex) {
-                out.message("Could not get component ID for " + forkTo + " component in Jira");
-                componentId = "";
-            }
-
-            String prUrl = createUploadPermissionPR(channel, sender, issueID, forkTo, users, Collections.singletonList(defaultAssignee), !issueTrackerChoice.contains("Jira"), componentId);
-            if (StringUtils.isBlank(prUrl)) {
-                out.message("Could not create upload permission pull request");
-            }
-
-            String prDescription = "";
-            String repoPermissionsActionText = "Create PR for upload permissions";
-            if (!StringUtils.isBlank(prUrl)) {
-                prDescription = "\n\nA [pull request|" + prUrl + "] has been created against the repository permissions updater to "
-                        + "setup release permissions for " + defaultAssignee + ". Additional users can be added by modifying "
-                        + "the created file. " + defaultAssignee + " will need to login to Jenkins' [Artifactory|https://repo.jenkins-ci.org/webapp/#/login] "
-                        + "once before the permissions will be merged.";
-                repoPermissionsActionText = "Add additional users for upload permissions, if needed";
-            }
-
-            String issueTrackerText = "";
-            if(issueTrackerChoice.contains("Jira")) {
-                issueTrackerText = "\n\nA Jira component named " + forkTo + " has also been created with "
-                        + defaultAssignee + " as the default assignee for issues.";
-            } else {
-                issueTrackerText = "\n\nGitHub issues has been selected for issue tracking and was enabled for the forked repo.";
-            }
-
-            // update the issue with information on next steps
-            String msg = "At the request of " + sender.getNick() + " on IRC, "
-                    + "the code has been forked into the jenkinsci project on GitHub as "
-                    + "https://github.com/jenkinsci/" + forkTo
-                    + issueTrackerText
-                    + prDescription
-                    + "\n\nPlease remove your original repository (if there are no other forks) so that the jenkinsci organization repository "
-                    + "is the definitive source for the code. If there are other forks, please contact GitHub support to make the jenkinsci repo the root of the fork network (mention that Jenkins approval was given in support request 569994). "
-                    + "Also, please make sure you properly follow the [documentation on documenting your plugin|https://jenkins.io/doc/developer/publishing/documentation/] "
-                    + "so that your plugin is correctly documented. \n\n"
-                    + "You will also need to do the following in order to push changes and release your plugin: \n\n"
-                    + "* [Accept the invitation to the Jenkins CI Org on Github|https://github.com/jenkinsci]\n"
-                    + "* [" + repoPermissionsActionText + "|https://github.com/jenkins-infra/repository-permissions-updater/#requesting-permissions]\n"
-                    + "* [Releasing your plugin|https://jenkins.io/doc/developer/publishing/releasing/]\n"
-                    + "\n\nIn order for your plugin to be built by the [Jenkins CI Infrastructure|https://ci.jenkins.io] and check pull requests,"
-                    + " please add a [Jenkinsfile|https://jenkins.io/doc/book/pipeline/jenkinsfile/] to the root of your repository with the following content:\n"
-                    + "{code}\nbuildPlugin()\n{code}"
-                    + "\n\nWelcome aboard!";
-
-            // add comment
-            issueClient.addComment(new URI(issue.getSelf().toString() + "/comment"), Comment.valueOf(msg)).
-                    get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
-
-            try {
-                Transition transition = JiraHelper.getTransitionByName(JiraHelper.getTransitions(issue), JiraHelper.DONE_JIRA_RESOLUTION_NAME);
-                if (transition != null) {
-                    Collection<FieldInput> inputs = asList(new FieldInput("resolution", ComplexIssueInputFieldValue.with("name", JiraHelper.DONE_JIRA_RESOLUTION_NAME)));
-                    JiraHelper.wait(issueClient.transition(issue, new TransitionInput(transition.getId(), inputs)));
-                } else {
-                    out.message("Unable to transition issue to \"" + JiraHelper.DONE_JIRA_RESOLUTION_NAME + "\" state");
-                }
-            } catch (RestClientException e) {
-                // if the issue cannot be put into the "resolved" state
-                // (perhaps it's already in that state), let it be. Or else
-                // we end up with the carpet bombing like HUDSON-2552.
-                // See HUDSON-5133 for the failure mode.
-
-                System.err.println("Failed to mark the issue as Done. " + e.getMessage());
-                e.printStackTrace();
-            }
-
-            out.message("Hosting setup complete");
-        } catch (IOException | URISyntaxException | ExecutionException | TimeoutException | InterruptedException e) {
-            e.printStackTrace();
-            out.message("Failed setting up hosting for HOSTING-" + hostingId + ". " + e.getMessage());
-        } finally {
-            if(!JiraHelper.close(client)) {
-                out.message("Failed to close JIRA client, possible leaked file descriptors");
             }
         }
-    }
-
-    private void checkHosting(Channel channel, User sender, String hostingId) {
-        if (!isSenderAuthorized(channel,sender)) {
-            insufficientPermissionError(channel);
-            return;
-        }
-
-        final String issueID = "HOSTING-" + hostingId;
-        channel.send().message("Checking hosting request " + issueID);
-
-        replyBugStatus(channel, issueID);
-        HostingChecker checker = new HostingChecker();
-        checker.checkRequest(channel.send(), issueID);
     }
 
     private void replyBugStatus(Channel channel, String ticket) {
@@ -645,79 +468,6 @@ public class IrcListener extends ListenerAdapter {
         }
 
         return result;
-    }
-
-    String createUploadPermissionPR(Channel channel, User sender, String jiraIssue, String forkTo, List<String> ghUsers, List<String> releaseUsers, boolean useGHIssues, String jiraComponentId) {
-        String prUrl = "";
-        boolean isPlugin = forkTo.endsWith("-plugin");
-        OutputChannel out = channel.send();
-        if(isPlugin) {
-            String branchName = "ircbot-" + forkTo + "-permissions";
-            try {
-                if (releaseUsers.isEmpty()) {
-                    out.message("No users defined for release permissions, will not create PR");
-                    return null;
-                }
-
-                GitHub github = GitHub.connect();
-                GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_INFRA_ORGANIZATION);
-                GHRepository repo = org.getRepository(IrcBotConfig.GITHUB_UPLOAD_PERMISSIONS_REPO);
-
-                String artifactPath = getArtifactPath(channel, github, forkTo);
-                if (StringUtils.isBlank(artifactPath)) {
-                    out.message("Could not resolve artifact path for " + forkTo);
-                    return null;
-                }
-
-                if(!repo.getBranches().containsKey(branchName)) {
-                    repo.createRef("refs/heads/" + branchName, repo.getBranch("master").getSHA1());
-                }
-
-                GHContentBuilder builder = repo.createContent();
-                builder = builder.branch(branchName).message("Adding upload permissions file for " + forkTo);
-                String name = forkTo.replace("-plugin", "");
-                String content = "---\n" +
-                        "name: \"" + name + "\"\n" +
-                        "github: &GH \"" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + forkTo + "\"\n" +
-                        "paths:\n" +
-                        "- \"" + artifactPath + "\"\n" +
-                        "developers:\n";
-                StringBuilder developerBuilder = new StringBuilder();
-                for(String u : releaseUsers) {
-                    developerBuilder.append("- \"" + u + "\"\n");
-                }
-                content += developerBuilder.toString();
-
-                content += "issues:\n";
-                if(useGHIssues) {
-                    content += "  - github: *GH\n";
-                } else if(StringUtils.isNotEmpty(jiraComponentId)) {
-                    content += "  - jira: " + jiraComponentId + "\n";
-                }
-
-                builder.content(content).path("permissions/plugin-" + forkTo.replace("-plugin", "") + ".yml").commit();
-
-                String prText = String.format("Hello from your friendly Jenkins Hosting Bot!%n%n" +
-                        "This is an automatically created PR for:%n%n" +
-                        "- %s/browse/%s%n" +
-                        "- https://github.com/%s/%s%n%n" +
-                        "The user(s) listed in the permissions file may not have logged in to Artifactory yet, check the PR status.%n" +
-                        "To check again, hosting team members will retrigger the build using Checks area or by closing and reopening the PR.%n%n" +
-                        "cc %s",
-                        IrcBotConfig.JIRA_URL, jiraIssue, IrcBotConfig.GITHUB_ORGANIZATION,
-                        forkTo, ghUsers.stream().map(u -> "@" + u).collect(joining(", ")));
-
-                GHPullRequest pr = repo.createPullRequest("Add upload permissions for " + forkTo, branchName, repo.getDefaultBranch(), prText);
-                prUrl = pr.getHtmlUrl().toString();
-                channel.send().message("Created PR for repository permissions updater: " + prUrl);
-            } catch (Exception e) {
-                channel.send().message("Error creating PR: " + e.getMessage());
-            }
-        } else {
-            out.message("Can only create PR's for plugin permissions at this time");
-            return null;
-        }
-        return prUrl;
     }
 
     /**
@@ -1191,46 +941,6 @@ public class IrcListener extends ListenerAdapter {
             e.printStackTrace();
             return false;
         }
-    }
-
-    private static String getArtifactPath(Channel channel, GitHub github, String forkTo) throws IOException {
-        String res = "";
-
-        GHOrganization org = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
-        GHRepository fork = org.getRepository(forkTo);
-
-        if(fork == null) {
-            return null;
-        }
-
-        String artifactId = null;
-        String groupId = null;
-
-        String[] buildFiles = new String[] { "pom.xml", "build.gradle" };
-        for(String buildFile : buildFiles) {
-            try {
-                GHContent file = fork.getFileContent(buildFile);
-                if(file != null && file.isFile()) {
-                    String contents = IOUtils.toString(file.read(), StandardCharsets.UTF_8);
-                    if (buildFile.equalsIgnoreCase("pom.xml")) {
-                        artifactId = MavenVerifier.getArtifactId(contents);
-                        groupId = MavenVerifier.getGroupId(contents);
-                    } else if (buildFile.equalsIgnoreCase("build.gradle")) {
-                        artifactId = GradleVerifier.getShortName(contents);
-                        groupId = GradleVerifier.getGroupId(contents);
-                    }
-                    break;
-                }
-            } catch(IOException e) {
-                channel.send().message("Could not find supported build file (pom.xml or build.gradle) to get artifact path from or another error occurred.");
-                return null;
-            }
-        }
-
-        if(!StringUtils.isBlank(artifactId) && !StringUtils.isBlank((groupId))) {
-            res = String.format("%s/%s", groupId.replace('.', '/'), artifactId);
-        }
-        return res;
     }
 
     public static void main(String[] args) throws Exception {
