@@ -5,24 +5,13 @@
 This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [Jenkins IRC Bot Page](https://jenkins.io/projects/infrastructure/ircbot/)
 
 ## Deployment
-This repo is containerized, then deployed to our infrastructure via Helm. 
-You should have a Write permission to https://github.com/jenkins-infra/ircbot and https://github.com/jenkins-infra/jenkins-infra to deploy the new version of the Bot.
 
-Actions:
+This repo is containerized (image available [on docker hub](https://hub.docker.com/r/jenkinsciinfra/ircbot/)), then [deployed to our infrastructure](https://github.com/jenkins-infra/kubernetes-management/blob/d843bf1f05334a3ca30394cca875b6d99492ab93/clusters/prodpublick8s.yaml#L116-L123) via Helmfile.
 
-1. Commit/merge changes into the master branch
-2. Wait till the preparation of Docker package on Jenkins INFRA 
- * The container is built on the Trusted Infrastructure, the best way to determine when the new tag is ready is to look at dockerhub tags
- * https://hub.docker.com/r/jenkinsciinfra/ircbot/tags
- * There should be a new tag within 30 minutes of the merge/commit to the master branch
-4. Modify the version in the Helm values.yaml file
- * Create a PR for the https://github.com/jenkins-infra/charts/blob/master/charts/chatbot/values.yaml file
- * Change the `tag` value to the tag from dockerhub
- * Wait till the merge of the pull request.
-5. Wait till the deployment. 
-   it is possible to call the `jenkins-admin: version` command to check the current version
+You can find the helm chart and instructions to install it in [jenkins-infra/helm-charts](https://github.com/jenkins-infra/helm-charts/tree/main/charts/ircbot).
 
 ## License
+
 [MIT License](https://opensource.org/licenses/mit-license.php)
 
 ## Developer guide
