@@ -8,7 +8,7 @@ This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/for
 
 This repo is containerized (image available [on docker hub](https://hub.docker.com/r/jenkinsciinfra/ircbot/)), then [deployed to our infrastructure](https://github.com/jenkins-infra/kubernetes-management/blob/d843bf1f05334a3ca30394cca875b6d99492ab93/clusters/prodpublick8s.yaml#L116-L123) via Helmfile.
 
-You can find the helm chart and instructions to install it [here](https://github.com/jenkins-infra/helm-charts/tree/main/charts/ircbot).
+You can find the helm chart and instructions to install it in [jenkins-infra/helm-charts](https://github.com/jenkins-infra/helm-charts/tree/main/charts/ircbot).
 
 ## License
 
