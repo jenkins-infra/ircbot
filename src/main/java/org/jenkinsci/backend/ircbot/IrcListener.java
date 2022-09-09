@@ -199,6 +199,12 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        m = Pattern.compile("archive (?:github )repo (\\S+) and prefix repo description with (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            archiveGitHubRepo(channel, sender, m.group(1), m.group(2));
+            return;
+        }
+
         m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             addGitHubCommitter(channel,sender,m.group(1),m.group(2));
@@ -1030,6 +1036,46 @@ public class IrcListener extends ListenerAdapter {
             out.message("The repository has been renamed: https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION+"/"+newName);
         } catch (IOException e) {
             out.message("Failed to rename a repository: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Archive a repository and add a prefix to its description (ex: archive explanation)
+     *
+     * @param descriptionPrefix
+     *      Prefix added to the repository description (ex: archive explanation)
+     */
+    private void archiveGitHubRepo(Channel channel, User sender, String repo, String descriptionPrefix) {
+        OutputChannel out = channel.send();
+        try {
+            if (!isSenderAuthorized(channel, sender, false)) {
+                insufficientPermissionError(channel, false);
+                return;
+            }
+            out.message("Archiving " + repo + " and prefixing its description with " + descriptionPrefix);
+
+            GitHub github = GitHub.connect();
+            GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            GHRepository orig = o.getRepository(repo);
+            if (orig == null) {
+                out.message("No such repository: " + repo);
+                return;
+            }
+
+            if (orig.isArchived()) {
+                out.message("The repository " + repo + " is already archived.");
+                return;
+            }
+
+            if (descriptionPrefix != "") {
+                orig.setDescription(descriptionPrefix + orig.getDescription());
+            }
+            orig.archive()
+            out.message("The repository has been archived: https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + repo);
+        } catch (IOException e) {
+            out.message("Failed to archive a repository: " + e.getMessage());
             e.printStackTrace();
         }
     }
