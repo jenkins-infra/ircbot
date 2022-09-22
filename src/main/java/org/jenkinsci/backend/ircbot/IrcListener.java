@@ -199,7 +199,7 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("archive (?:github )repo (\\S+) and prefix repo description with (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("archive (?:github )repo (\\S+) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             archiveGitHubRepo(channel, sender, m.group(1), m.group(2));
             return;
