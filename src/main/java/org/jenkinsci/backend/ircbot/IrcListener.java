@@ -1041,19 +1041,19 @@ public class IrcListener extends ListenerAdapter {
     }
 
     /**
-     * Archive a repository and add a prefix to its description (ex: archive explanation)
+     * Archive a repository and optionally replace its description (with archive explanation for example)
      *
-     * @param descriptionPrefix
-     *      Prefix added to the repository description (ex: archive explanation)
+     * @param description
+     *      Repository description (ex: archive explanation)
      */
-    private void archiveGitHubRepo(Channel channel, User sender, String repo, String descriptionPrefix) {
+    private void archiveGitHubRepo(Channel channel, User sender, String repo, String description) {
         OutputChannel out = channel.send();
         try {
             if (!isSenderAuthorized(channel, sender, false)) {
                 insufficientPermissionError(channel, false);
                 return;
             }
-            out.message("Archiving " + repo + " and prefixing its description with " + descriptionPrefix);
+            out.message("Archiving " + repo + " and prefixing its description with " + description);
 
             GitHub github = GitHub.connect();
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
@@ -1069,8 +1069,8 @@ public class IrcListener extends ListenerAdapter {
                 return;
             }
 
-            if (descriptionPrefix != "") {
-                orig.setDescription(descriptionPrefix + orig.getDescription());
+            if (description != "") {
+                orig.setDescription(description);
             }
             orig.archive()
             out.message("The repository has been archived: https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + repo);
