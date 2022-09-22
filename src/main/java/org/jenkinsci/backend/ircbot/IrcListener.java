@@ -1053,7 +1053,6 @@ public class IrcListener extends ListenerAdapter {
                 insufficientPermissionError(channel, false);
                 return;
             }
-            out.message("Archiving " + repo + " and prefixing its description with " + description);
 
             GitHub github = GitHub.connect();
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
@@ -1071,6 +1070,7 @@ public class IrcListener extends ListenerAdapter {
 
             if (description != "") {
                 orig.setDescription(description);
+                out.message("Description of the repository " + repo + " changed to: " + description);
             }
             orig.archive()
             out.message("The repository has been archived: https://github.com/" + IrcBotConfig.GITHUB_ORGANIZATION + "/" + repo);
