@@ -352,26 +352,6 @@ public class IrcListener extends ListenerAdapter {
         channel.send().setTopic(newTopic);
     }
 
-            return;
-        }
-
-        OutputChannel out = channel.send();
-        try {
-
-                return;
-            }
-
-                return;
-            }
-
-
-            }
-
-            } else {
-            }
-        }
-    }
-
     private void replyBugStatus(Channel channel, String ticket) {
         Long time = recentIssues.get(ticket);
 
