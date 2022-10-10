@@ -17,6 +17,7 @@ node('docker') {
         * our current build's commit. We must do this because right now I cannot
         * refer to `env.GIT_COMMIT` in Pipeline scripts
         */
+        sh 'mvn clean package'
         sh 'git rev-parse HEAD > GIT_COMMIT'
         shortCommit = readFile('GIT_COMMIT').take(6)
         imageTag = "${env.BUILD_ID}-build${shortCommit}"
