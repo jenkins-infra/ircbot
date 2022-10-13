@@ -13,7 +13,7 @@ pipeline {
   stages {
     stage('Build') {
       environment {
-        JAVA_HOME = '/opt/jdk-8/'
+        JAVA_HOME = '/opt/jdk-11/'
         BUILD_NUMBER = env.GIT_COMMIT.take(6)
       }
       steps {
