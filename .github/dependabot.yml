@@ -15,5 +15,5 @@ updates:
       interval: "weekly"
     ignore:
       # Requires Java 11+
-      - dependency-name: "jenkins"
+      - dependency-name: "org.jenkins-ci:jenkins"
         versions: [">1.76"]
