@@ -13,3 +13,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Requires Java 11+
+      - dependency-name: "org.jenkins-ci:jenkins"
+        versions: [">1.76"]
