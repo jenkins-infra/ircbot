@@ -1,6 +1,6 @@
 # JIRA/GitHub management IRCBot
 
-[![Build Status](https://ci.jenkins.io/job/Infra/job/ircbot/job/master/badge/icon)](https://ci.jenkins.io/job/Infra/job/ircbot/job/master/)
+[![Build Status](https://ci.jenkins.io/job/Infra/job/ircbot/job/main/badge/icon)](https://ci.jenkins.io/job/Infra/job/ircbot/job/main/)
 
 This IRC bot sits on `#jenkins` as `jenkins-admin` and allow users to create/fork repositories on GitHub, etc. More info: [Jenkins IRC Bot Page](https://jenkins.io/projects/infrastructure/ircbot/)
 
