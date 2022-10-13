@@ -31,7 +31,6 @@ import com.atlassian.jira.rest.client.api.domain.IssueField;
 import com.atlassian.jira.rest.client.api.domain.Project;
 import com.atlassian.jira.rest.client.api.domain.Transition;
 import com.atlassian.jira.rest.client.internal.async.AsynchronousJiraRestClientFactory;
-import com.atlassian.util.concurrent.Promise;
 import java.io.IOException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +39,7 @@ import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import io.atlassian.util.concurrent.Promise;
 import org.codehaus.jettison.json.JSONException;
 import org.codehaus.jettison.json.JSONObject;
 import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
@@ -80,7 +80,7 @@ public class JiraHelper {
      * @throws TimeoutException Timeout (configured by {@link IrcBotConfig#JIRA_TIMEOUT_SEC}) 
      */
     @Nonnull
-    static <T> T wait(Promise<T> promise) 
+    static <T> T wait(Promise<T> promise)
             throws InterruptedException, ExecutionException, TimeoutException {
         return promise.get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
     }

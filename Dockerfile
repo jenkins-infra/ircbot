@@ -1,5 +1,4 @@
-# TODO: Bump to JDK11 and generate a JRE with jlink - https://hub.docker.com/_/eclipse-temurin#CreatingaJREusingjlink
-FROM eclipse-temurin:8-jre-alpine
+FROM eclipse-temurin:11.0.16_8-jre-alpine
 
 RUN adduser -D -h /home/ircbot -u 1013 ircbot
 
