@@ -1,10 +1,10 @@
 package org.jenkinsci.backend.ircbot.fallback;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class WeightedRandomAnswerTest {
 
@@ -42,8 +42,8 @@ public class WeightedRandomAnswerTest {
                 gotC++;
             }
         }
-        assertTrue("Got A " + gotA + " times", 79_000 < gotA && gotA < 81_000);
-        assertTrue("Got B " + gotB + " times", 14_500 < gotB && gotB < 15_500);
-        assertTrue("Got C " + gotC + " times", 4_500 < gotC && gotC < 5_500);
+        assertTrue(79_000 < gotA && gotA < 81_000, "Got A " + gotA + " times");
+        assertTrue(14_500 < gotB && gotB < 15_500, "Got B " + gotB + " times");
+        assertTrue(4_500 < gotC && gotC < 5_500, "Got C " + gotC + " times");
     }
 }
