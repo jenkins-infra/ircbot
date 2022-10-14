@@ -2,6 +2,7 @@ package org.jenkinsci.backend.ircbot;
 
 import com.google.common.collect.ImmutableSortedSet;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterAll;
 import org.kohsuke.github.*;
 import org.mockito.Mockito;
 import org.mockito.MockedStatic;
@@ -25,6 +26,11 @@ import static org.mockito.Mockito.when;
  */
 public class IrcListenerTest {
     static MockedStatic<GitHub> utilities = Mockito.mockStatic(GitHub.class);
+
+    @AfterAll
+    public static void afterClass() throws Exception {
+        utilities.closeOnDemand();
+    }
 
     @Test
     public void testForkGithubExistingRepo() throws Exception {
