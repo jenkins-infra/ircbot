@@ -1,7 +1,6 @@
 package org.jenkinsci.backend.ircbot;
 
 import com.google.common.collect.ImmutableSortedSet;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.kohsuke.github.*;
 import org.mockito.Mockito;
