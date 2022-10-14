@@ -36,7 +36,7 @@ public class IrcBotBuildInfoTest {
     public void testVersionInfoReal() throws IOException {
         InputStream istream = IrcBotBuildInfo.class.getResourceAsStream("/versionInfo.properties");
         assumingThat(istream != null, () -> {
-            System.out.println("This test is expected to work in https://ci.jenkins-ci.org/job/infra_ircbot/ job only");
+            System.out.println("This test is expected to work in https://ci.jenkins.io/job/Infra/job/ircbot/ job only");
             IrcBotBuildInfo info = IrcBotBuildInfo.readResourceFile("/versionInfo.properties");
             System.out.println(info);
         });
