@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
  * @author Oleg Nenashev <o.v.nenashev@gmail.com>
  */
 public class IrcBotConfigTest  {
-    @Test    
+    @Test
     public void testGetConfig() {
         System.out.println("name = " + IrcBotConfig.NAME);
         System.out.println("default JIRA project = " + IrcBotConfig.JIRA_DEFAULT_PROJECT);        
