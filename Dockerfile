@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11.0.16_8-jre-alpine
+FROM eclipse-temurin:18.0.2_9-jre-alpine
 
 RUN adduser -D -h /home/ircbot -u 1013 ircbot
 
