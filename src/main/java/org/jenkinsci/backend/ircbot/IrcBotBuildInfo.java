@@ -52,7 +52,7 @@ import java.util.Properties;
 
     @Override
     public String toString() {
-        return String.format("build%s %s (%s)", buildNumber, gitCommit, buildDate);
+        return String.format("build-%s %s (%s)", buildNumber, gitCommit, buildDate);
     }
     
     private static String readProperty(Properties propFile, String key) throws IOException {
