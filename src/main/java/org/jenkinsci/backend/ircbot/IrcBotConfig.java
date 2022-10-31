@@ -60,8 +60,6 @@ public class IrcBotConfig {
 
     // Github
     static String GITHUB_ORGANIZATION = System.getProperty(varPrefix+"github.organization", "jenkinsci");
-    static String GITHUB_INFRA_ORGANIZATION = System.getProperty(varPrefix+"github.infraOrganization", "jenkins-infra");
-    static String GITHUB_UPLOAD_PERMISSIONS_REPO = System.getProperty(varPrefix+".github.uploadPermissionRepo", "repository-permissions-updater");
     static String GITHUB_POST_COMMIT_HOOK_EMAIL = System.getProperty(varPrefix+"github.postCommitHookEmail", "jenkinsci-commits@googlegroups.com");
 
     static {
