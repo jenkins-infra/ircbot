@@ -67,7 +67,7 @@
   <dependencies>
     <dependency>
       <groupId>com.atlassian.jira</groupId>
-      <artifactId>jira-rest-java-client-core</artifactId>
+      <artifactId>jira-rest-java-client-app</artifactId>
       <version>5.2.4</version>
       <exclusions>
         <exclusion>
@@ -83,24 +83,24 @@
           <artifactId>spring-jcl</artifactId>
         </exclusion>
         <exclusion>
-          <groupId>org.apache.httpcomponents</groupId>
-          <artifactId>httpcore</artifactId>
-        </exclusion>
-        <exclusion>
           <groupId>org.slf4j</groupId>
           <artifactId>slf4j-api</artifactId>
         </exclusion>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.5.13</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-simple</artifactId>
       <version>2.0.3</version>
-    </dependency>
-    <dependency>
-      <groupId>io.atlassian.util.concurrent</groupId>
-      <artifactId>atlassian-util-concurrent</artifactId>
-      <version>4.0.1</version>
     </dependency>
     <dependency>
       <groupId>com.github.pircbotx</groupId>
@@ -111,6 +111,11 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
       <version>3.12.0</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.15</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
