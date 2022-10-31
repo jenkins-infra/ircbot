@@ -51,12 +51,6 @@ import org.jenkinsci.backend.ircbot.util.ConnectionInfo;
  */
 public class JiraHelper {
 
-    public static final String FORK_TO_JIRA_FIELD = "customfield_10321";
-    public static final String FORK_FROM_JIRA_FIELD = "customfield_10320";
-    public static final String USER_LIST_JIRA_FIELD = "customfield_10323";
-    public static final String ISSUE_TRACKER_JIRA_FIELD = "customfield_11320";
-    public static final String DONE_JIRA_RESOLUTION_NAME = "Done";
-    
     /**
      * Creates JIRA client using settings from {@link ConnectionInfo} and {@link IrcBotConfig}.
      * @return Created client with configured authentication settings.
@@ -85,13 +79,6 @@ public class JiraHelper {
         return promise.get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
     }
     
-    @Nonnull
-    static Issue getIssue(JiraRestClient client, String ticket) 
-            throws ExecutionException, TimeoutException, InterruptedException {
-        return client.getIssueClient().getIssue(ticket).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
-    }
-    
-
     static boolean close(JiraRestClient client) {
         try {
             if (client != null) {
@@ -139,54 +126,5 @@ public class JiraHelper {
                 IrcBotConfig.JIRA_URL + "/browse/" + ticket);
         close(client);
         return result;
-    }
-    
-    @CheckForNull
-    static String getFieldValue(@Nonnull Issue issue, @Nonnull String fieldId) {
-        return getFieldValueOrDefault(issue, fieldId, null);
-    }
-    
-    @Nullable
-    public static String getFieldValueOrDefault(@Nonnull Issue issue, @Nonnull String fieldId, @CheckForNull String defaultValue) {
-        String res = defaultValue;
-        for (IssueField val : issue.getFields()) {
-            String thisFieldId = val.getId();
-            if (thisFieldId.equalsIgnoreCase(fieldId)) {
-                Object _value = val.getValue();
-                if (_value != null) {
-                    if(_value instanceof  String) {
-                        res = (String) _value;
-                        break;
-                    } else if (_value instanceof JSONObject) {
-                        JSONObject _jsonValue = (JSONObject)_value;
-                        if(_jsonValue.has("value")) {
-                            try {
-                                res = _jsonValue.getString("value");
-                                break;
-                            } catch(JSONException e) {
-                                // we should log this?
-                                res = defaultValue;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        return res;
-    }
-
-    static Iterable<Transition> getTransitions(@Nonnull Issue issue) throws IOException, ExecutionException, TimeoutException, InterruptedException {
-        JiraRestClient client = createJiraClient();
-        return client.getIssueClient().getTransitions(issue).get(IrcBotConfig.JIRA_TIMEOUT_SEC, TimeUnit.SECONDS);
-    }
-
-    @CheckForNull
-    static Transition getTransitionByName(@Nonnull Iterable<Transition> transitions, String name) {
-        for (Transition transition : transitions) {
-            if (transition.getName().equalsIgnoreCase(name)) {
-                return transition;
-            }
-        }
-        return null;
     }
 }

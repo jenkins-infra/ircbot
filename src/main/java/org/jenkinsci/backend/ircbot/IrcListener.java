@@ -540,7 +540,7 @@ public class IrcListener extends ListenerAdapter {
                     new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
             JiraHelper.wait(updateComponent);
             out.message(owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
-        } catch (Exception e) {
+        } catch (Throwable e) {
             out.message("Failed to set default assignee: "+e.getMessage());
             e.printStackTrace();
         } finally {
