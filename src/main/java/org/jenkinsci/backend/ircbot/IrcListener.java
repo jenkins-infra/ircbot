@@ -186,7 +186,7 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (a )?(committ?er|member) on (.*)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (a )?(committ?er|member) (?:from|on) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             removeGitHubCommitter(channel,sender,m.group(1),m.group(2));
             return;
