@@ -186,6 +186,12 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (a )?(committ?er|member) on (.*)",CASE_INSENSITIVE).matcher(payload);
+        if (m.matches()) {
+            removeGitHubCommitter(channel,sender,m.group(1),m.group(2));
+            return;
+        }
+
         m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(maintainer) on (.*)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             makeGitHubTeamMaintainer(channel, sender, m.group(1), m.group(4));
@@ -732,6 +738,36 @@ public class IrcListener extends ListenerAdapter {
             result = true;
         } catch (IOException e) {
             out.message("Failed to add user to team: "+e.getMessage());
+            e.printStackTrace();
+        }
+        return result;
+    }
+
+    private boolean removeGitHubCommitter(Channel channel, User sender, String collaborator, String justForThisRepo) {
+        boolean result = false;
+        if (!isSenderAuthorized(channel,sender)) {
+            insufficientPermissionError(channel);
+            return false;
+        }
+        OutputChannel out = channel.send();
+        try {
+            GitHub github = GitHub.connect();
+            GHUser githubUser = github.getUser(collaborator);
+            GHOrganization githubOrganization = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+
+            final GHTeam ghTeam;
+            GHRepository forThisRepo = githubOrganization.getRepository(justForThisRepo);
+            if (forThisRepo == null) {
+                out.message("Could not find repository:  "+justForThisRepo);
+                return false;
+            }
+
+            ghTeam = getOrCreateRepoLocalTeam(out, github, githubOrganization, forThisRepo, emptyList());
+            ghTeam.remove(githubUser);
+            out.message("Removed " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
+            result = true;
+        } catch (IOException e) {
+            out.message("Failed to remove user from team: "+e.getMessage());
             e.printStackTrace();
         }
         return result;
