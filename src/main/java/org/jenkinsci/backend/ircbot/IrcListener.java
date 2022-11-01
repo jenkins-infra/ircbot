@@ -188,7 +188,7 @@ public class IrcListener extends ListenerAdapter {
 
         m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (a )?(committ?er|member).*",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            removeGitHubCommitter(channel,sender,m.group(1),null);
+            removeGitHubCommitter(channel,sender,m.group(1),m.group(2));
             return;
         }
 
@@ -751,11 +751,6 @@ public class IrcListener extends ListenerAdapter {
         }
         OutputChannel out = channel.send();
         try {
-            if (justForThisRepo == null) {
-                // legacy command
-                out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
-                return false;
-            }
             GitHub github = GitHub.connect();
             GHUser githubUser = github.getUser(collaborator);
             GHOrganization githubOrganization = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
