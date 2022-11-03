@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import io.atlassian.util.concurrent.Promise;
+import org.jenkinsci.backend.ircbot.fallback.BotsnackMessage;
 import org.jenkinsci.backend.ircbot.fallback.FallbackMessage;
 import org.kohsuke.github.GHOrganization.Permission;
 import org.kohsuke.github.GHTeamBuilder;
@@ -292,6 +293,11 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
+        if(payload.equalsIgnoreCase("botsnack")) {
+            sendBotsnackMessage(channel, sender);
+            return;
+        }
+
         if (payload.equalsIgnoreCase("restart")) {
             restart(channel,sender);
         }
@@ -307,8 +313,12 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
-    private void sendFallbackMessage(Channel channel, String payload, User sender) {
+    private void sendBotsnackMessage(Channel channel, User sender) {
+        OutputChannel out = channel.send();
+        out.message((new BotsnackMessage(sender).answer()));
+    }
 
+    private void sendFallbackMessage(Channel channel, String payload, User sender) {
         OutputChannel out = channel.send();
         out.message(new FallbackMessage(payload, sender).answer());
     }
