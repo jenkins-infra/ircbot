@@ -11,9 +11,9 @@ import org.pircbotx.User;
  */
 public class FallbackMessage {
     private final String payload;
-    private final User sender;
+    private final String sender;
 
-    public FallbackMessage(String payload, User sender) {
+    public FallbackMessage(String payload, String sender) {
         this.payload = payload;
         this.sender = sender;
     }
@@ -29,7 +29,7 @@ public class FallbackMessage {
         }
 
         if (StringUtils.startsWithIgnoreCase(payload, "hello")) {
-            return "Hello, " + sender.getNick() + "!";
+            return "Hello, " + sender + "!";
         }
 
         return new WeightedRandomAnswer()

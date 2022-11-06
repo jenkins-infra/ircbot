@@ -4,11 +4,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.pircbotx.User;
 
 public class BotsnackMessage {
-    private final User sender;
-
-    public BotsnackMessage(User sender) {
-        this.sender = sender;
-    }
 
     public String answer() {
         return new WeightedRandomAnswer()

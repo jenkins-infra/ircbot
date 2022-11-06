@@ -1,5 +1,7 @@
 package org.jenkinsci.backend.ircbot;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
@@ -35,14 +37,6 @@ public class IrcBotConfig {
      * @since 2.0-SNAPSHOT
      */
     static String TEST_SUPERUSER = System.getProperty(varPrefix+"testSuperUser", null);
-    
-    // IRC Hook
-    static String IRC_HOOK_NAME = System.getProperty(varPrefix+"ircHook.name", "irc");
-    static String IRC_HOOK_PORT = System.getProperty(varPrefix+"ircHook.port", "6667");
-    static String IRC_HOOK_NICK = System.getProperty(varPrefix+"ircHook.nick", "github-jenkins");
-    static String IRC_HOOK_PASSWORD = System.getProperty(varPrefix+"ircHook.password", "");
-    static String IRC_HOOK_ROOM = System.getProperty(varPrefix+"ircHook.room", "#jenkins-commits");
-    static String IRC_HOOK_LONG_URL= System.getProperty(varPrefix+"ircHook.longUrl", "1");
 
     // JIRAs
     /**
@@ -68,19 +62,6 @@ public class IrcBotConfig {
         } catch (Exception ex) {
             throw new IllegalStateException("Cannot create URI for JIRA URL " + JIRA_URL, ex);
         }
-    }
-    
-    public static Map<String, String> getIRCHookConfig() {
-
-        final Map<String, String> ircHookConfig = new TreeMap<String, String>();
-        ircHookConfig.put("server", SERVER);
-        ircHookConfig.put("port", IRC_HOOK_PORT);
-        ircHookConfig.put("nick", IRC_HOOK_NICK);
-        ircHookConfig.put("password", IRC_HOOK_PASSWORD);
-        ircHookConfig.put("room", IRC_HOOK_ROOM);
-        ircHookConfig.put("long_url", IRC_HOOK_LONG_URL);
-
-        return Collections.unmodifiableMap(ircHookConfig);
     }
 
     public static @Nonnull Set<String> getChannels() {

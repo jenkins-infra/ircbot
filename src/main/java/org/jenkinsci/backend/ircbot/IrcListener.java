@@ -69,8 +69,6 @@ public class IrcListener extends ListenerAdapter {
      */
     private File unknownCommands;
 
-    private final Random random = new Random(System.currentTimeMillis());
-
     /**
      * Map from the issue number to the time it was last mentioned.
      * Used so that we don't repeatedly mention the same issues.
@@ -315,12 +313,12 @@ public class IrcListener extends ListenerAdapter {
 
     private void sendBotsnackMessage(Channel channel, User sender) {
         OutputChannel out = channel.send();
-        out.message((new BotsnackMessage(sender).answer()));
+        out.message((new BotsnackMessage().answer()));
     }
 
     private void sendFallbackMessage(Channel channel, String payload, User sender) {
         OutputChannel out = channel.send();
-        out.message(new FallbackMessage(payload, sender).answer());
+        out.message(new FallbackMessage(payload, sender.getNick()).answer());
     }
 
     /**
@@ -990,50 +988,5 @@ public class IrcListener extends ListenerAdapter {
 
         PircBotX bot = new PircBotX(builder.buildConfiguration());
         bot.startBot();
-    }
-
-    static {
-        /*
-            I started seeing the SSL related problem. Given that there's no change in project_tools.html
-            that include this Google Analytics, I'm not really sure why this is happening.
-            Until I sort it out, I'm just dumbing down HTTPS into HTTP. Given that this only runs in one place
-            and its network is well protected, I don't think this enables attacks to the system.
-
-
-1270050442632 ### java.lang.RuntimeException: Error loading included script: java.io.IOException: HTTPS hostname wrong:  should be <ssl.google-analytics.com>
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML.getScript(ParsedHTML.java:291)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML.interpretScriptElement(ParsedHTML.java:269)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML.access$600(ParsedHTML.java:37)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML$ScriptFactory.recordElement(ParsedHTML.java:404)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML$2.processElement(ParsedHTML.java:556)
-1270050442632 ###       at com.meterware.httpunit.NodeUtils$PreOrderTraversal.perform(NodeUtils.java:169)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML.loadElements(ParsedHTML.java:566)
-1270050442632 ###       at com.meterware.httpunit.ParsedHTML.getForms(ParsedHTML.java:101)
-1270050442632 ###       at com.meterware.httpunit.WebResponse.getForms(WebResponse.java:311)
-1270050442632 ###       at org.kohsuke.jnt.JNMembership.grantRole(JNMembership.java:200)
-1270050442632 ###       at org.jvnet.hudson.backend.ircbot.IrcBotImpl.grantCommitAccess(IrcBotImpl.java:181)
-1270050442632 ###       at org.jvnet.hudson.backend.ircbot.IrcBotImpl.onMessage(IrcBotImpl.java:74)
-1270050442632 ###       at org.jibble.pircbot.PircBot.handleLine(PircBot.java:927)
-1270050442633 ###       at org.jibble.pircbot.InputThread.run(InputThread.java:95)
-         */
-        class TrustAllManager implements X509TrustManager {
-            public X509Certificate[] getAcceptedIssuers() {
-                return null;
-            }
-
-            public void checkClientTrusted(X509Certificate[] x509Certificates, String s) {
-            }
-
-            public void checkServerTrusted(X509Certificate[] x509Certificates, String s) {
-            }
-        }
-
-        try {
-            SSLContext sc = SSLContext.getInstance("SSL");
-            sc.init(null, new TrustManager[]{new TrustAllManager()}, null);
-            HttpsURLConnection.setDefaultSSLSocketFactory(sc.getSocketFactory());
-        } catch (GeneralSecurityException e) {
-            throw new Error(e);
-        }
     }
 }
