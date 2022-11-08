@@ -10,6 +10,9 @@ import java.io.FileOutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -157,49 +160,47 @@ public class IrcListener extends ListenerAdapter {
 
         m = Pattern.compile("(?:create|make|add) (\\S+)(?: repository)? (?:on|in) github(?: for (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            createGitHubRepository(channel, sender, m.group(1), m.group(2), m.group(3) != null && m.group(3).toLowerCase().contains("github"));
+            createGitHubRepository(channel,sender,m.group(1),m.group(2),m.group(3) != null && m.group(3).toLowerCase().contains("github"));
             return;
         }
 
         m = Pattern.compile("fork (?:https://github\\.com/)?(\\S+)/(\\S+)(?: on github)?(?: as (\\S+))?(?: with (jira|github issues))?",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            forkGitHub(channel, sender, m.group(1),m.group(2),m.group(3), emptyList(), m.group(4).toLowerCase().contains("github"));
+            forkGitHub(channel,sender,m.group(1),m.group(2),m.group(3), emptyList(), m.group(4).toLowerCase().contains("github"));
             return;
         }
 
         m = Pattern.compile("rename (?:github )repo (\\S+) to (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            renameGitHubRepo(channel, sender, m.group(1), m.group(2));
+            renameGitHubRepo(channel,sender,m.group(1),m.group(2));
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:committ?er|commit access) (?:of|on|to|at) (.+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),m.group(2));
+            List<String> repos = collectGroups(m, 2);
+            addGitHubCommitter(channel,sender,m.group(1),repos);
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(committ?er|commit access).*",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (?:a )?(committ?er|member) (?:from|on) (.+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            addGitHubCommitter(channel,sender,m.group(1),null);
+            List<String> repos = collectGroups(m, 2);
+            removeGitHubCommitter(channel,sender,m.group(1),repos);
             return;
         }
 
-        m = Pattern.compile("(?:remove|revoke) (\\S+)(?: as)? (a )?(committ?er|member) (?:from|on) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (?:a )?(?:maintainer) on (.+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            removeGitHubCommitter(channel,sender,m.group(1),m.group(2));
+            List<String> repos = collectGroups(m, 2);
+            makeGitHubTeamMaintainer(channel, sender, m.group(1), repos);
             return;
         }
 
-        m = Pattern.compile("(?:make|give|grant|add) (\\S+)(?: as)? (a )?(maintainer) on (.*)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make) (.*) team(?:s)? visible",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            makeGitHubTeamMaintainer(channel, sender, m.group(1), m.group(4));
-            return;
-        }
-
-        m = Pattern.compile("(?:make) (.*) team visible",CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            makeGitHubTeamVisible(channel, sender, m.group(1));
+            List<String> teams = collectGroups(m, 1);
+            makeGitHubTeamVisible(channel, sender, teams);
             return;
         }
 
@@ -221,15 +222,17 @@ public class IrcListener extends ListenerAdapter {
             return;
         }
 
-        m = Pattern.compile("(?:rem|remove) (?:the )?(?:lead|default assignee) (?:for|of|from) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:rem|remove) (?:the )?(?:lead|default assignee) (?:for|of|from) (.+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            removeDefaultAssignee(channel, sender, m.group(1));
+            List<String> subcomponents = collectGroups(m,1);
+            removeDefaultAssignee(channel, sender, subcomponents);
             return;
         }
 
-        m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (\\S+)",CASE_INSENSITIVE).matcher(payload);
+        m = Pattern.compile("(?:make|set) (\\S+) (?:the |as )?(?:lead|default assignee) (?:for|of) (.+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
-            setDefaultAssignee(channel, sender, m.group(2), m.group(1));
+            List<String> subcomponents = collectGroups(m, 2);
+            setDefaultAssignee(channel, sender, subcomponents, m.group(1));
             return;
         }
 
@@ -260,12 +263,6 @@ public class IrcListener extends ListenerAdapter {
         m = Pattern.compile("(?:kick) (\\S+)",CASE_INSENSITIVE).matcher(payload);
         if (m.matches()) {
             kickUser(channel,sender,m.group(1));
-            return;
-        }
-
-        m = Pattern.compile("(?:set) (?:topic) (.*)", CASE_INSENSITIVE).matcher(payload);
-        if (m.matches()) {
-            setTopic(channel,sender,m.group(1));
             return;
         }
 
@@ -343,16 +340,16 @@ public class IrcListener extends ListenerAdapter {
     }
 
     private void kickUser(Channel channel, User sender, String target) {
-        if (!isSenderAuthorized(channel,sender)) {
+        if (!isSenderAuthorized(channel, sender)) {
             insufficientPermissionError(channel);
             return;
         }
 
         OutputChannel out = channel.send();
-        for(User u : channel.getUsers()) {
-            if(u.getNick().equalsIgnoreCase(target)) {
+        for (User u : channel.getUsers()) {
+            if (u.getNick().equalsIgnoreCase(target)) {
                 out.kick(u, "kicked");
-                out.message("Kicked user "+target);
+                out.message("Kicked user " + target);
                 break;
             }
         }
@@ -384,8 +381,6 @@ public class IrcListener extends ListenerAdapter {
         }
     }
 
-
-
     /**
      * Is the sender respected in the channel?
      *
@@ -396,7 +391,9 @@ public class IrcListener extends ListenerAdapter {
     }
 
     private boolean isSenderAuthorized(Channel channel, User sender, boolean acceptVoice) {
-        return (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick())) || sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP || (acceptVoice && e == UserLevel.VOICE));
+        return (IrcBotConfig.TEST_SUPERUSER != null && IrcBotConfig.TEST_SUPERUSER.equals(sender.getNick()))
+                || sender.getUserLevels(channel).stream().anyMatch(e -> e == UserLevel.OP
+                || (acceptVoice && e == UserLevel.VOICE));
     }
 
     private void help(Channel channel) {
@@ -529,36 +526,44 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Deletes an assignee from the specified component
      */
-    private void removeDefaultAssignee(Channel channel, User sender, String subcomponent) {
-        setDefaultAssignee(channel, sender, subcomponent, null);
+    private void removeDefaultAssignee(Channel channel, User sender, List<String> subcomponents) {
+        setDefaultAssignee(channel, sender, subcomponents, null);
     }
 
     /**
      * Creates an issue tracker component.
      * @param owner User ID or null if the owner should be removed
      */
-    private void setDefaultAssignee(Channel channel, User sender, String subcomponent, @CheckForNull String owner) {
-        if (!isSenderAuthorized(channel,sender)) {
+    private void setDefaultAssignee(Channel channel, User sender, List<String> subcomponents,
+                                    @CheckForNull String owner) {
+        if (!isSenderAuthorized(channel, sender)) {
             insufficientPermissionError(channel);
             return;
         }
 
         OutputChannel out = channel.send();
-        out.message(String.format("Changing default assignee of subcomponent %s to %s",subcomponent,owner));
-
         JiraRestClient client = null;
         try {
             client = JiraHelper.createJiraClient();
-            final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
-            Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
-                    new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
-            JiraHelper.wait(updateComponent);
-            out.message(owner != null ? "Default assignee set to " + owner : "Default assignee has been removed");
+            for (String subcomponent : subcomponents) {
+                try {
+                    out.message(String.format("Changing default assignee of subcomponent %s to %s", subcomponent, owner));
+                    final Component component = JiraHelper.getComponent(client, IrcBotConfig.JIRA_DEFAULT_PROJECT, subcomponent);
+                    Promise<Component> updateComponent = client.getComponentClient().updateComponent(component.getSelf(),
+                            new ComponentInput(null, null, owner != null ? owner : "", AssigneeType.COMPONENT_LEAD));
+                    JiraHelper.wait(updateComponent);
+                    out.message(owner != null ? String.format("Default assignee set to %s for %s", owner, subcomponent)
+                            : "Default assignee has been removed for " + subcomponent);
+                } catch(ExecutionException | TimeoutException | InterruptedException | IOException e) {
+                    out.message(String.format("Failed to set default assignee for %s: %s", subcomponent, e.getMessage()));
+                    e.printStackTrace();
+                }
+            }
         } catch (Throwable e) {
-            out.message("Failed to set default assignee: "+e.getMessage());
+            out.message("Failed to connect to Jira: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            if(!JiraHelper.close(client)) {
+            if (!JiraHelper.close(client)) {
                 out.message("Failed to close JIRA client, possible leaked file descriptors");
             }
         }
@@ -645,140 +650,156 @@ public class IrcListener extends ListenerAdapter {
     /**
      * Makes GitHub team visible.
      *
-     * @param team
-     *      team to make visible
+     * @param teams
+     *      teams to make visible
      */
-    private boolean makeGitHubTeamVisible(Channel channel, User sender, String team) {
-        boolean result = false;
+    private void makeGitHubTeamVisible(Channel channel, User sender, List<String> teams) {
         if (!isSenderAuthorized(channel, sender)) {
             insufficientPermissionError(channel);
-            return false;
+            return;
         }
         OutputChannel out = channel.send();
         try {
             GitHub github = GitHub.connect();
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
 
-            final GHTeam ghTeam = o.getTeamByName(team);
-            if (ghTeam == null) {
-                out.message("No team for " + team);
-                return false;
+            for (String team : teams) {
+                try {
+                    final GHTeam ghTeam = o.getTeamByName(team);
+                    if (ghTeam == null) {
+                        out.message("No team for " + team);
+                        continue;
+                    }
+
+                    ghTeam.setPrivacy(GHTeam.Privacy.CLOSED);
+
+                    out.message("Made GitHub team " + team + " visible");
+                } catch (IOException e) {
+                    out.message("Failed to make GitHub team " + team + " visible: " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
-
-            ghTeam.setPrivacy(GHTeam.Privacy.CLOSED);
-
-            out.message("Made GitHub team " + team + " visible");
-            result = true;
-        } catch (IOException e) {
-            out.message("Failed to make GitHub team " + team + " visible: " + e.getMessage());
-            e.printStackTrace();
+        } catch(IOException e) {
+            out.message("Failed to connect to GitHub or retrieve organization information: " + e.getMessage());
         }
-        return result;
     }
 
     /**
      * Makes a user a maintainer of a GitHub team
      *
-     * @param team
-     *      make user a maintainer of a team.
+     * @param teams
+     *      make user a maintainer of one oe more teams.
      */
-    private boolean makeGitHubTeamMaintainer(Channel channel, User sender, String newTeamMaintainer, String team) {
-        boolean result = false;
+    private void makeGitHubTeamMaintainer(Channel channel, User sender, String newTeamMaintainer, List<String> teams) {
         if (!isSenderAuthorized(channel, sender)) {
             insufficientPermissionError(channel);
-            return false;
+            return;
         }
         OutputChannel out = channel.send();
         try {
             GitHub github = GitHub.connect();
-            GHUser c = github.getUser(newTeamMaintainer);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+            for (String team : teams) {
+                try {
+                    GHUser c = github.getUser(newTeamMaintainer);
 
-            final GHTeam ghTeam = o.getTeamByName(team);
-            if (ghTeam == null) {
-                out.message("No team for " + team);
-                return false;
+                    final GHTeam ghTeam = o.getTeamByName(team);
+                    if (ghTeam == null) {
+                        out.message("No team for " + team);
+                        continue;
+                    }
+
+                    ghTeam.add(c, GHTeam.Role.MAINTAINER);
+                    out.message("Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team);
+                } catch (IOException e) {
+                    out.message("Failed to make user maintainer of one or more teams: " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
-
-            ghTeam.add(c, GHTeam.Role.MAINTAINER);
-            out.message("Added " + newTeamMaintainer + " as a GitHub maintainer for team " + team);
-            result = true;
         } catch (IOException e) {
-            out.message("Failed to make user maintainer of team: " + e.getMessage());
+            out.message("Failed to connect to GitHub or get organization information: " + e.getMessage());
             e.printStackTrace();
         }
-        return result;
     }
 
     /**
      * Adds a new collaborator to existing repositories.
      *
-     * @param justForThisRepo
-     *      Null to add to add the default team ("Everyone"), otherwise add him to a team specific repository.
+     * @param repos
+     *      List of repositories to add the collaborator to.
      */
-    private boolean addGitHubCommitter(Channel channel, User sender, String collaborator, String justForThisRepo) {
-        boolean result = false;
+    private void addGitHubCommitter(Channel channel, User sender, String collaborator, List<String> repos) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return false;
+            return;
         }
         OutputChannel out = channel.send();
+
+        if (repos == null || repos.isEmpty()) {
+            // legacy command
+            out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
+            return;
+        }
+
         try {
-            if (justForThisRepo == null) {
-                // legacy command
-                out.message("I'm not longer managing the Everyone team. Please add committers to specific repos.");
-                return false;
-            }
             GitHub github = GitHub.connect();
             GHUser c = github.getUser(collaborator);
             GHOrganization o = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
 
-            final GHTeam t;
-            GHRepository forThisRepo = o.getRepository(justForThisRepo);
-            if (forThisRepo == null) {
-                out.message("Could not find repository:  "+justForThisRepo);
-                return false;
-            }
+            for(String repo : repos) {
+                try {
+                    final GHTeam t;
+                    GHRepository forThisRepo = o.getRepository(repo);
+                    if (forThisRepo == null) {
+                        out.message("Could not find repository:  " + repo);
+                        continue;
+                    }
 
-            t = getOrCreateRepoLocalTeam(out, github, o, forThisRepo, emptyList());
-            t.add(c);
-            out.message("Added " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
-            result = true;
+                    t = getOrCreateRepoLocalTeam(out, github, o, forThisRepo, emptyList());
+                    t.add(c);
+                    out.message(String.format("Added %s as a GitHub committer for repository %s", collaborator, repo));
+                } catch(IOException e) {
+                    out.message("Failed to add user to team: "+e.getMessage());
+                    e.printStackTrace();
+                }
+            }
         } catch (IOException e) {
-            out.message("Failed to add user to team: "+e.getMessage());
+            out.message("Failed to connect to GitHub or get organization/user information: "+e.getMessage());
             e.printStackTrace();
         }
-        return result;
     }
 
-    private boolean removeGitHubCommitter(Channel channel, User sender, String collaborator, String justForThisRepo) {
-        boolean result = false;
+    private void removeGitHubCommitter(Channel channel, User sender, String collaborator, List<String> repos) {
         if (!isSenderAuthorized(channel,sender)) {
             insufficientPermissionError(channel);
-            return false;
+            return;
         }
         OutputChannel out = channel.send();
         try {
             GitHub github = GitHub.connect();
             GHUser githubUser = github.getUser(collaborator);
             GHOrganization githubOrganization = github.getOrganization(IrcBotConfig.GITHUB_ORGANIZATION);
+            for(String repo : repos) {
+                try {
+                    final GHTeam ghTeam;
+                    GHRepository forThisRepo = githubOrganization.getRepository(repo);
+                    if (forThisRepo == null) {
+                        out.message("Could not find repository:  " + repo);
+                        continue;
+                    }
 
-            final GHTeam ghTeam;
-            GHRepository forThisRepo = githubOrganization.getRepository(justForThisRepo);
-            if (forThisRepo == null) {
-                out.message("Could not find repository:  "+justForThisRepo);
-                return false;
+                    ghTeam = getOrCreateRepoLocalTeam(out, github, githubOrganization, forThisRepo, emptyList());
+                    ghTeam.remove(githubUser);
+                    out.message("Removed " + collaborator + " as a GitHub committer for repository " + repo);
+                } catch(IOException e) {
+                    out.message("Failed to remove user from team: "+e.getMessage());
+                    e.printStackTrace();
+                }
             }
-
-            ghTeam = getOrCreateRepoLocalTeam(out, github, githubOrganization, forThisRepo, emptyList());
-            ghTeam.remove(githubUser);
-            out.message("Removed " + collaborator + " as a GitHub committer for repository " + justForThisRepo);
-            result = true;
         } catch (IOException e) {
-            out.message("Failed to remove user from team: "+e.getMessage());
+            out.message("Failed to connect to GitHub or retrieve organization or user information: "+e.getMessage());
             e.printStackTrace();
         }
-        return result;
     }
 
     private void renameGitHubRepo(Channel channel, User sender, String repo, String newName) {
@@ -965,6 +986,13 @@ public class IrcListener extends ListenerAdapter {
             e.printStackTrace();
             return false;
         }
+    }
+
+    private static List<String> collectGroups(Matcher m, int startingGroup) {
+        List<String> items = new ArrayList<>(
+                Arrays.asList(m.group(startingGroup).split("\\s*,\\s*")));
+
+        return items;
     }
 
     public static void main(String[] args) throws Exception {
