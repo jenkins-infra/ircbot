@@ -36,6 +36,8 @@ import org.pircbotx.User;
 import org.pircbotx.UserLevel;
 import org.pircbotx.output.OutputChannel;
 import org.pircbotx.output.OutputIRC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
@@ -67,6 +69,9 @@ import javax.annotation.CheckForNull;
  * @author Kohsuke Kawaguchi
  */
 public class IrcListener extends ListenerAdapter {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(IrcListener.class);
+
     /**
      * Records commands that we didn't understand.
      */
@@ -108,7 +113,8 @@ public class IrcListener extends ListenerAdapter {
             }
         } catch (RuntimeException ex) { // Catch unhandled runtime issues
             ex.printStackTrace();
-            channel.send().message("An error ocurred in the Bot. Please submit a bug to Jenkins INFRA project.");
+            channel.send().message("An error ocurred. Please submit a ticket to the Jenkins infra helpdesk with the following exception:");
+            channel.send().message("https://github.com/jenkins-infra/helpdesk/issues/new?assignees=&labels=triage,irc&template=1-report-issue.yml");
             channel.send().message(ex.getMessage());
             throw ex; // Propagate the error to the caller in order to let it log and handle the issue
         }
@@ -878,7 +884,7 @@ public class IrcListener extends ListenerAdapter {
             } catch (IOException e) {
                 // we started seeing 500 errors, presumably due to time out.
                 // give it a bit of time, and see if the repository is there
-                System.out.println("GitHub reported that it failed to fork "+owner+"/"+repo+". But we aren't trusting");
+                LOGGER.warn("GitHub reported that it failed to fork {}/{}. But we aren't trusting", owner, repo);
                 r = null;
                 for (int i=0; r==null && i<5; i++) {
                     Thread.sleep(1000);
@@ -1011,8 +1017,8 @@ public class IrcListener extends ListenerAdapter {
                    .addCapHandler(new SASLCapHandler(IrcBotConfig.NAME, args[0]));
         }
 
-        System.out.println("Connecting to "+IrcBotConfig.SERVER+" as "+IrcBotConfig.NAME);
-        System.out.println("GitHub organization = "+IrcBotConfig.GITHUB_ORGANIZATION);
+        LOGGER.info("Connecting to {} as {}.", IrcBotConfig.SERVER, IrcBotConfig.NAME);
+        LOGGER.info("GitHub organization: {}", IrcBotConfig.GITHUB_ORGANIZATION);
 
         PircBotX bot = new PircBotX(builder.buildConfiguration());
         bot.startBot();
