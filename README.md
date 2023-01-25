@@ -57,7 +57,15 @@ Setting up the environment:
 Running the bot for testing:
 
 ```sh
-java -Dircbot.name=test-ircbot -Dircbot.channels="#jenkins-ircbot-test" -Dircbot.testSuperUser="${YOUR_IRC_NAME}" -Dircbot.github.organization="jenkinsci-infra-ircbot-test" -Dircbot.jira.url=${JIRA_URL} -Dircbot.jira.defaultProject=TEST -jar target/ircbot-2.0-SNAPSHOT-bin/ircbot-2.0-SNAPSHOT.jar 
+java -Dircbot.name=test-ircbot \ 
+-Dircbot.channels="#jenkins-ircbot-test" \ 
+-Dircbot.testSuperUser="${YOUR_IRC_NAME}" \ 
+-Dircbot.github.organization="jenkinsci-infra-ircbot-test" \
+-Dircbot.jira.url=${JIRA_URL} \
+-Dircbot.jira.defaultProject=TEST \
+-Dorg.slf4j.simpleLogger.showDateTime=true \
+-Dorg.slf4j.simpleLogger.dateTimeFormat="yyyy-MM-dd HH:mm:ss:SSS Z"
+-jar target/ircbot-2.0-SNAPSHOT-bin/ircbot-2.0-SNAPSHOT.jar 
 ```
 
 After executing this command the bot should connect to your IRC chat.
