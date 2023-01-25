@@ -25,4 +25,4 @@ ENV APP_NAME="${APP_NAME}"
 ENTRYPOINT [\
   "/tini", "--",\
   "/bin/sh","-c",\
-  "java -Dircbot.name=jenkins-admin -jar /usr/local/bin/${APP_NAME}.jar"]
+  "java -Dircbot.name=jenkins-admin -Dorg.slf4j.simpleLogger.showDateTime=true -Dorg.slf4j.simpleLogger.dateTimeFormat='yyyy-MM-dd HH:mm:ss:SSS Z' -jar /usr/local/bin/${APP_NAME}.jar"]
