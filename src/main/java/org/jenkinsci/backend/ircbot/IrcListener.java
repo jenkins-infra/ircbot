@@ -108,8 +108,6 @@ public class IrcListener extends ListenerAdapter {
                 String payload = message.substring(directMessagePrefix.length()).trim();
                 payload = payload.replaceAll("\\s+", " ");
                 handleDirectCommand(channel, sender, payload);
-            } else {   // Just a commmon message in the chat
-                replyBugStatuses(channel, message);
             }
         } catch (RuntimeException ex) { // Catch unhandled runtime issues
             ex.printStackTrace();
@@ -117,43 +115,6 @@ public class IrcListener extends ListenerAdapter {
             channel.send().message("https://github.com/jenkins-infra/helpdesk/issues/new?assignees=&labels=triage,irc&template=1-report-issue.yml");
             channel.send().message(ex.getMessage());
             throw ex; // Propagate the error to the caller in order to let it log and handle the issue
-        }
-    }
-
-    private void replyBugStatuses(Channel channel, String message) {
-        Matcher m = Pattern.compile("(?:hudson-|jenkins-|bug )([0-9]{2,})",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"JENKINS-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:infra-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"INFRA-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:website-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"WEBSITE-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:hosting-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"HOSTING-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:events-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"EVENTS-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:ux-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"UX-"+m.group(1));
-        }
-
-        m = Pattern.compile("(?:test-)([0-9]+)",CASE_INSENSITIVE).matcher(message);
-        while (m.find()) {
-            replyBugStatus(channel,"TEST-"+m.group(1));
         }
     }
 
