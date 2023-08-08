@@ -17,7 +17,7 @@ pipeline {
         BUILD_NUMBER = env.GIT_COMMIT.take(6)
       }
       steps {
-        sh 'make bot'
+        sh 'make clean bot'
       }
 
       post {
