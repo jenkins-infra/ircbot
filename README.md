@@ -1,3 +1,10 @@
+> [!CAUTION]
+> This repository and the associated Docker images are archived.
+> 
+> More details in https://github.com/jenkins-infra/helpdesk/issues/4645.
+
+
+
 # JIRA/GitHub management IRCBot
 
 [![Build Status](https://ci.jenkins.io/job/Infra/job/ircbot/job/main/badge/icon)](https://ci.jenkins.io/job/Infra/job/ircbot/job/main/)
